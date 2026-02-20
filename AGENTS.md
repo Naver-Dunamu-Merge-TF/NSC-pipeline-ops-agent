@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Overview
-Spec-driven delivery workflow: humans define intent and approvals, while agents execute implementation, verification, and PR creation under Sudocode orchestration.
+Spec-driven delivery workflow: humans define intent and approvals, while agents execute implementation and verification under Sudocode orchestration.
 
 ## File Structure
 - `.specs/` - Intent SSOT (domain rules, contracts, design rationale). Human-authored.
@@ -24,10 +24,10 @@ Spec-driven delivery workflow: humans define intent and approvals, while agents 
 - Use `PLACEHOLDER` values in docs/examples/tests when secret-like values are needed.
 - Run test commands in the project virtual environment (`.venv`) by default.
 - Before creating a PR, run local review agent Momus and include `Reviewed-by: Momus (Local)` in PR body.
-- If the same test fails 5 consecutive attempts, stop retry loop, record unresolved items, and create a Draft PR.
+- If the same test fails 5 consecutive attempts, stop retry loop and record unresolved items.
 
 ### Scope and execution
-- Keep changes task-scoped: `1 Task = 1 Issue = 1 PR`.
+- Keep changes task-scoped: `1 Task = 1 Issue`.
 - Do not expand scope beyond the active Sudocode issue.
 - Prefer minimal and surgical changes over speculative abstractions.
 - If `.specs/` or `docs/adr/` is changed, require manual approval and do not rely on auto-merge.
