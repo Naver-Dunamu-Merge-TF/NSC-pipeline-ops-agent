@@ -211,3 +211,6 @@ __marimo__/
 
 # Windows metadata artifacts
 *:Zone.Identifier
+
+# Local stray skill artifact
+skills/supabase-postgres-best-practices
