@@ -1,0 +1,57 @@
+name: CI L2
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  l2:
+    name: L2 Test and Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          fi
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          fi
+          python -m pip install pytest pytest-cov
+
+      - name: Run L2 verification
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TEST_PATHS=()
+          if [ -d tests/unit ]; then
+            TEST_PATHS+=("tests/unit")
+          fi
+          if [ -d tests/integration ]; then
+            TEST_PATHS+=("tests/integration")
+          fi
+
+          if [ "${#TEST_PATHS[@]}" -eq 0 ] || [ ! -d src ]; then
+            echo "Skipping L2: tests/unit or tests/integration and src are not ready."
+            exit 0
+          fi
+
+          python -m pytest "${TEST_PATHS[@]}" --cov=src --cov-fail-under=80
