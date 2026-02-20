@@ -28,9 +28,12 @@ METIS_REQUIRED_THRESHOLD = 6
 MOMUS_REQUIRED_THRESHOLD = 4
 MAX_ULW_ITERATIONS_BY_RISK = {"low": 1, "medium": 2, "high": 3}
 VERIFY_SCORE = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
+RISK_TIER_ORDER = {"low": 0, "medium": 1, "high": 2}
+RISK_TIER_BONUS = {"low": 0, "medium": 2, "high": 4}
 
 ENV_METIS_APPROVED = "DISPATCHER_METIS_APPROVED"
 ENV_MOMUS_APPROVED = "DISPATCHER_MOMUS_PRE_APPROVED"
+ENV_MOMUS_POST_APPROVED = "DISPATCHER_MOMUS_POST_APPROVED"
 
 
 class DispatchError(RuntimeError):
@@ -66,8 +69,17 @@ def extract_verify_level(issue: Dict[str, Any]) -> str:
     return "L0"
 
 
+def extract_gate_tier(issue: Dict[str, Any]) -> str:
+    for tag in normalize_tags(issue.get("tags")):
+        if not tag.startswith("gate:"):
+            continue
+        value = tag.split(":", 1)[1].strip().lower()
+        if value in RISK_TIER_BONUS:
+            return value
+    return "low"
+
+
 def extract_priority_level(issue: Dict[str, Any]) -> Optional[int]:
-    # Prefer explicit numeric/priority tag if available.
     priority = issue.get("priority")
     if isinstance(priority, int):
         return priority
@@ -93,9 +105,21 @@ def mentions_protected_scope(content: str, title: str = "") -> bool:
     return any(pattern in combined for pattern in PROTECTED_SCOPE_PATTERNS)
 
 
+def max_risk_tier(*tiers: str) -> str:
+    selected = "low"
+    score = RISK_TIER_ORDER[selected]
+    for tier in tiers:
+        current = RISK_TIER_ORDER.get(tier, 0)
+        if current > score:
+            score = current
+            selected = tier
+    return selected
+
+
 def build_gate_profile(issue: Dict[str, Any]) -> GateProfile:
     tags = normalize_tags(issue.get("tags"))
     verify_level = extract_verify_level(issue)
+    gate_tier = extract_gate_tier(issue)
     priority_level = extract_priority_level(issue)
 
     reasons: List[str] = []
@@ -115,13 +139,19 @@ def build_gate_profile(issue: Dict[str, Any]) -> GateProfile:
             priority_score = 1
             reasons.append(f"Priority indicates P{priority_level}")
 
-    risk_score = verify_score + priority_score
+    gate_score = RISK_TIER_BONUS.get(gate_tier, 0)
+    if gate_tier in RISK_TIER_BONUS:
+        reasons.append(f"Gate override tag set to {gate_tier}")
+
+    risk_score = verify_score + priority_score + gate_score
 
     if "approval:manual" in tags:
         risk_score += 2
         reasons.append("Manual approval tag requested")
 
-    if mentions_protected_scope(str(issue.get("content") or ""), str(issue.get("title") or "")):
+    if mentions_protected_scope(
+        str(issue.get("content") or ""), str(issue.get("title") or "")
+    ):
         risk_score += 2
         reasons.append("Protected scope appears in issue content")
 
@@ -130,6 +160,8 @@ def build_gate_profile(issue: Dict[str, Any]) -> GateProfile:
         risk_tier = "high"
     elif risk_score >= 4:
         risk_tier = "medium"
+
+    risk_tier = max_risk_tier(risk_tier, gate_tier)
 
     recommended = MAX_ULW_ITERATIONS_BY_RISK[risk_tier]
 
@@ -160,20 +192,120 @@ def enforce_gates(profile: GateProfile, issue_id: str, strict: bool) -> None:
             )
 
 
+def enforce_post_review(profile: GateProfile, issue_id: str, strict: bool) -> None:
+    if not strict:
+        return
+    if not profile.requires_momus_pre_review:
+        return
+    if not (os.environ.get(ENV_MOMUS_POST_APPROVED) == "1"):
+        raise DispatchError(
+            f"Issue {issue_id} requires Momus post-review approval. Set {ENV_MOMUS_POST_APPROVED}=1 to proceed."
+        )
+
+
+def run_verification_command(verify_command: str, cwd: Path) -> CommandResult:
+    try:
+        args = shlex.split(verify_command)
+    except ValueError as exc:
+        return CommandResult(
+            args=[verify_command],
+            returncode=2,
+            stdout="",
+            stderr=f"Invalid verify command: {exc}",
+        )
+
+    if not args:
+        return CommandResult(
+            args=[verify_command],
+            returncode=2,
+            stdout="",
+            stderr="Verify command is empty after parsing",
+        )
+    return run_command(args=args, cwd=cwd)
+
+
+def extract_verify_command_from_content(content: str) -> Optional[str]:
+    prefixes = (
+        "verify_command:",
+        "verification_command:",
+        "verify command:",
+        "verification command:",
+    )
+    for line in content.splitlines():
+        stripped = line.strip()
+        lowered = stripped.lower()
+        for prefix in prefixes:
+            if lowered.startswith(prefix):
+                candidate = stripped[len(prefix) :].strip()
+                if candidate:
+                    return candidate
+    return None
+
+
+def resolve_verify_command(
+    issue: Dict[str, Any],
+    override: Optional[str],
+) -> tuple[Optional[str], str]:
+    if isinstance(override, str):
+        stripped_override = override.strip()
+        if stripped_override:
+            return stripped_override, "arg"
+
+    for key in (
+        "verify_command",
+        "verification_command",
+        "verifyCommand",
+        "verificationCommand",
+    ):
+        value = issue.get(key)
+        if isinstance(value, str):
+            stripped_value = value.strip()
+            if stripped_value:
+                return stripped_value, f"issue.{key}"
+
+    content_command = extract_verify_command_from_content(
+        str(issue.get("content") or "")
+    )
+    if content_command:
+        return content_command, "issue.content"
+
+    return None, "none"
+
+
 def run_ulw_loop(
     command: str,
     message: str,
     cwd: Path,
+    issue_id: str,
     agent: Optional[str],
     model: Optional[str],
     max_iterations: int,
-) -> tuple[CommandResult, int, List[Dict[str, Any]]]:
+    expected_status: str,
+    verify_command: Optional[str],
+    verify_command_source: str,
+) -> tuple[CommandResult, int, List[Dict[str, Any]], bool, str]:
     max_iterations = max(1, max_iterations)
     attempts: List[Dict[str, Any]] = []
-    result = None
+    result = CommandResult(
+        args=[
+            "opencode",
+            "run",
+            "--command",
+            command,
+            "--format",
+            "default",
+            message,
+        ],
+        returncode=1,
+        stdout="",
+        stderr="",
+    )
     final_iteration = 0
+    state_drift = False
+    latest_issue_status = expected_status
 
     for iteration in range(1, max_iterations + 1):
+        status_before = read_issue_status(issue_id=issue_id, cwd=cwd)
         attempt_result = run_opencode(
             command=command,
             message=message,
@@ -183,21 +315,65 @@ def run_ulw_loop(
         )
         final_iteration = iteration
         result = attempt_result
-        attempt_success = classify_success(attempt_result)
+        opencode_success = classify_success(attempt_result)
+
+        verification_result = None
+        verification_success = True
+        if verify_command:
+            verification_result = run_verification_command(
+                verify_command=verify_command,
+                cwd=cwd,
+            )
+            verification_success = verification_result.returncode == 0
+
+        status_after = read_issue_status(issue_id=issue_id, cwd=cwd)
+        latest_issue_status = status_after
+        checkpoint_status = status_after
+        iteration_drift = status_after != expected_status
+        if not iteration_drift:
+            checkpoint_status = update_issue_status(
+                issue_id=issue_id,
+                status=expected_status,
+                fallback=None,
+                cwd=cwd,
+            )
+            latest_issue_status = checkpoint_status
+
+        attempt_success = (
+            opencode_success and verification_success and not iteration_drift
+        )
         attempts.append(
             {
                 "iteration": iteration,
                 "return_code": attempt_result.returncode,
                 "success": attempt_success,
+                "opencode_success": opencode_success,
+                "status_before": status_before,
+                "status_after": status_after,
+                "status_checkpoint": checkpoint_status,
+                "status_drift": iteration_drift,
+                "verification": {
+                    "command": verify_command,
+                    "source": verify_command_source,
+                    "skipped": verify_command is None,
+                    "success": verification_success,
+                    "return_code": (
+                        verification_result.returncode if verification_result else None
+                    ),
+                    "args": verification_result.args if verification_result else None,
+                },
             }
         )
+        if iteration_drift:
+            state_drift = True
+            break
         if attempt_success:
             break
 
     if result is None:
         raise DispatchError("ULW loop returned no command result")
 
-    return result, final_iteration, attempts
+    return result, final_iteration, attempts, state_drift, latest_issue_status
 
 
 def final_status_for_success(success: bool) -> str:
@@ -295,6 +471,42 @@ def pick_ready_issue(cwd: Path) -> str:
 
 def show_issue(issue_id: str, cwd: Path) -> Dict[str, Any]:
     return run_json(["sudocode", "--json", "issue", "show", issue_id], cwd)
+
+
+def read_issue_status(issue_id: str, cwd: Path) -> str:
+    issue = show_issue(issue_id=issue_id, cwd=cwd)
+    status = str(issue.get("status") or "")
+    if not status:
+        raise DispatchError(f"Unable to read status for issue {issue_id}")
+    return status
+
+
+def rollback_issue_to_open(
+    issue_id: str,
+    fallback_status: str,
+    cwd: Path,
+    reason: str,
+) -> Dict[str, Any]:
+    status_before = fallback_status
+    try:
+        status_after = update_issue_status(
+            issue_id=issue_id,
+            status=FAILURE_STATUS,
+            fallback=None,
+            cwd=cwd,
+        )
+    except Exception as exc:
+        status_after = status_before
+        raise DispatchError(
+            f"Failed to rollback issue {issue_id} to '{FAILURE_STATUS}' after {reason}: {exc}"
+        ) from exc
+
+    return {
+        "rolled_back": status_before != status_after,
+        "from_status": status_before,
+        "to_status": status_after,
+        "reason": reason,
+    }
 
 
 def update_issue_status(
@@ -398,6 +610,11 @@ def write_artifacts(
     gate_profile: Optional[GateProfile],
     ulw_iterations: int,
     ulw_attempts: Optional[List[Dict[str, Any]]],
+    post_review: Optional[Dict[str, Any]],
+    rollback: Optional[Dict[str, Any]],
+    issue_status_journey: Optional[List[Dict[str, Any]]],
+    verify_command: Optional[str],
+    verify_command_source: str,
 ) -> Path:
     logs_dir.mkdir(parents=True, exist_ok=True)
     stamp = utc_now_text()
@@ -431,9 +648,14 @@ def write_artifacts(
         ],
         "command": command_result.args,
         "gate_profile": asdict(gate_profile) if gate_profile else None,
+        "post_review": post_review,
+        "rollback": rollback,
         "ulw": {
             "iterations": ulw_iterations,
             "attempts": ulw_attempts or [],
+            "status_journey": issue_status_journey or [],
+            "verify_command": verify_command,
+            "verify_command_source": verify_command_source,
         },
     }
     meta_path.write_text(
@@ -512,6 +734,13 @@ def parse_args() -> argparse.Namespace:
         help="Require explicit environment approvals for conditional gates",
     )
     parser.add_argument(
+        "--verify-command",
+        help=(
+            "Optional verification command to run after each ULW iteration; "
+            "overrides issue-defined verification command"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Resolve and print selected issue/command without executing",
@@ -532,7 +761,11 @@ def main() -> int:
         return 1
     args.command = normalized_command
 
-    logs_dir = repo_root / ".sudocode" / "logs"
+    configured_logs_dir = Path(args.logs_dir)
+    if configured_logs_dir.is_absolute():
+        logs_dir = configured_logs_dir
+    else:
+        logs_dir = repo_root / configured_logs_dir
 
     issue_id = ""
     issue_title = ""
@@ -564,6 +797,17 @@ def main() -> int:
     success = False
     ulw_attempts: List[Dict[str, Any]] = []
     ulw_executed_iterations = 0
+    ulw_state_drift = False
+    issue_status_journey: List[Dict[str, Any]] = []
+    post_review: Dict[str, Any] = {
+        "required": False,
+        "strict": args.strict_gates,
+        "result": "not-required",
+        "approval_env": ENV_MOMUS_POST_APPROVED,
+    }
+    rollback_info: Optional[Dict[str, Any]] = None
+    verify_command: Optional[str] = None
+    verify_command_source = "none"
 
     def persist_artifacts(artifact_status: str) -> None:
         if not issue_id:
@@ -579,6 +823,11 @@ def main() -> int:
             gate_profile=gate_profile,
             ulw_iterations=ulw_executed_iterations,
             ulw_attempts=ulw_attempts,
+            post_review=post_review,
+            rollback=rollback_info,
+            issue_status_journey=issue_status_journey,
+            verify_command=verify_command,
+            verify_command_source=verify_command_source,
         )
 
     try:
@@ -591,6 +840,19 @@ def main() -> int:
         current_status = str(issue.get("status") or "open")
         issue_title = str(issue.get("title") or "")
         gate_profile = build_gate_profile(issue)
+        post_review["required"] = bool(
+            gate_profile.requires_momus_pre_review and args.strict_gates
+        )
+        post_review["result"] = "required" if post_review["required"] else "optional"
+        verify_command, verify_command_source = resolve_verify_command(
+            issue=issue,
+            override=args.verify_command,
+        )
+        max_iterations = (
+            args.ulw_iterations
+            if args.ulw_iterations
+            else gate_profile.recommended_ulw_iterations
+        )
 
         message = build_message(issue=issue, override=args.message)
         if args.dry_run:
@@ -604,6 +866,11 @@ def main() -> int:
                         "agent": args.agent,
                         "model": args.model,
                         "gate_profile": asdict(gate_profile),
+                        "ulw_config": {
+                            "max_iterations": max_iterations,
+                            "verify_command": verify_command,
+                            "verify_command_source": verify_command_source,
+                        },
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -625,25 +892,67 @@ def main() -> int:
                 cwd=repo_root,
             )
 
-        max_iterations = args.ulw_iterations if args.ulw_iterations else gate_profile.recommended_ulw_iterations
-        result, ulw_executed_iterations, ulw_attempts = run_ulw_loop(
-            command=normalized_command,
-            message=message,
-            cwd=repo_root,
-            agent=args.agent,
-            model=args.model,
-            max_iterations=max_iterations,
+        result, ulw_executed_iterations, ulw_attempts, ulw_state_drift, loop_status = (
+            run_ulw_loop(
+                command=normalized_command,
+                message=message,
+                cwd=repo_root,
+                issue_id=issue_id,
+                agent=args.agent,
+                model=args.model,
+                max_iterations=max_iterations,
+                expected_status="in_progress",
+                verify_command=verify_command,
+                verify_command_source=verify_command_source,
+            )
         )
+        issue_status_journey = ulw_attempts
         command_result = result
 
-        success = classify_success(result)
-        final_status = final_status_for_success(success)
-        final_status = update_issue_status(
-            issue_id=issue_id,
-            status=final_status,
-            fallback=FAILURE_STATUS if success else None,
-            cwd=repo_root,
-        )
+        success = bool(ulw_attempts and ulw_attempts[-1].get("success"))
+        if ulw_state_drift:
+            success = False
+
+        if success and post_review["required"]:
+            if args.strict_gates:
+                try:
+                    enforce_post_review(gate_profile, issue_id, strict=True)
+                    post_review["result"] = "approved"
+                except DispatchError as exc:
+                    post_review["result"] = "missing"
+                    success = False
+                    fail_reason = str(exc)
+                else:
+                    fail_reason = None
+            else:
+                post_review["result"] = "optional"
+                fail_reason = None
+        else:
+            fail_reason = None
+
+        if not success:
+            rollback_reason = fail_reason
+            if rollback_reason is None:
+                if ulw_state_drift:
+                    rollback_reason = f"state drift to '{loop_status}' during ULW loop"
+                else:
+                    rollback_reason = "ULW execution did not succeed"
+            rollback_info = rollback_issue_to_open(
+                issue_id=issue_id,
+                fallback_status=loop_status,
+                cwd=repo_root,
+                reason=rollback_reason,
+            )
+            final_status = rollback_info["to_status"]
+        else:
+            final_status = final_status_for_success(True)
+            final_status = update_issue_status(
+                issue_id=issue_id,
+                status=final_status,
+                fallback=FAILURE_STATUS,
+                cwd=repo_root,
+            )
+
         log_path = write_artifacts_safe(
             logs_dir=logs_dir,
             issue_id=issue_id,
@@ -655,6 +964,11 @@ def main() -> int:
             gate_profile=gate_profile,
             ulw_iterations=ulw_executed_iterations,
             ulw_attempts=ulw_attempts,
+            post_review=post_review,
+            rollback=rollback_info,
+            issue_status_journey=issue_status_journey,
+            verify_command=verify_command,
+            verify_command_source=verify_command_source,
         )
 
         output = {
@@ -664,12 +978,23 @@ def main() -> int:
             "success": success,
             "return_code": result.returncode,
             "ulw_executed_iterations": ulw_executed_iterations,
+            "ulw_state_drift": ulw_state_drift,
+            "post_review": post_review,
+            "rollback": rollback_info,
             "gate_profile": asdict(gate_profile),
+            "ulw_config": {
+                "max_iterations": max_iterations,
+                "verify_command": verify_command,
+                "verify_command_source": verify_command_source,
+            },
             "log_path": str(log_path) if log_path else None,
         }
         print(json.dumps(output, ensure_ascii=False, indent=2))
         return 0 if success else 1
 
+    except KeyboardInterrupt:
+        print("dispatcher interrupted", file=sys.stderr)
+        return 130
     except DispatchError as exc:
         final_status = final_status_for_success(False)
         persist_artifacts(final_status)
@@ -680,9 +1005,6 @@ def main() -> int:
         persist_artifacts(final_status)
         print(f"dispatcher error: {exc}", file=sys.stderr)
         return 1
-    except KeyboardInterrupt:
-        print("dispatcher interrupted", file=sys.stderr)
-        return 130
 
 
 if __name__ == "__main__":
