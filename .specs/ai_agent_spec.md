@@ -252,14 +252,16 @@ class AgentState(TypedDict):
 
 ### 2.2.2 에이전트 입력 테이블 스키마 (사용 컬럼만 발췌)
 
-detect.py / collect.py가 실제로 읽는 컬럼만 발췌한다. 전체 스키마 SSOT는 `data_contract.md`.
+detect.py / collect.py가 실제로 읽는 컬럼만 발췌한다.
+
+SSOT는 [.specs/data_contract.md](./data_contract.md)입니다.
 
 #### `gold.pipeline_state` — detect.py, collect.py
 
 | 컬럼 | 타입 | 에이전트 사용 목적 |
 |------|------|-----------------|
 | `pipeline_name` | string | PK — 파이프라인 필터 |
-| `status` | string | `"success" \| "failure"` — 장애 판정 기준 ⚠️ data_contract.md 누락, architecture_guide.md 기준 |
+| `status` | string | `"success" \| "failure"` — 장애 판정 기준 |
 | `last_success_ts` | timestamp(UTC) | 컷오프 지연 임계값 비교 |
 | `last_processed_end` | timestamp(UTC) | `pipeline_b`/`pipeline_c` 하드 게이트 판정 기준 |
 | `last_run_id` | string | fingerprint 생성/추적 기준 |
@@ -292,10 +294,12 @@ detect.py / collect.py가 실제로 읽는 컬럼만 발췌한다. 전체 스키
 | 컬럼 | 타입 | 에이전트 사용 목적 |
 |------|------|-----------------|
 | `source_table` | string | 위반 테이블 집계 기준 |
-| `reason` | string | 위반 사유 — 필드명이 이 컬럼에 포함됨 ⚠️ 정확한 포맷 구현 전 확인 필요 |
-| `record_json` | string(JSON) | 원본 레코드 값 ⚠️ PII 포함 여부 미확인 |
+| `reason` | string | 위반 사유 (`field`, `rule`, `detail` 키가 있는 구조 문자열/JSON 가정) — 포맷은 구현 전 확인 필요 |
+| `record_json` | string(JSON) | 원본 레코드 값 |
 | `run_id` | string | `pipeline_silver` run_id 기준 필터 |
 | `detected_date_kst` | date | 파티션 필터 |
+
+`silver.bad_records.reason` 포맷은 **현재 가정 + 확인 필요** 상태로 유지되며, `field` 추출이 불확실한 경우 `field="unknown"` 원칙을 따른다.
 
 ### 2.3 감지 트리거
 
