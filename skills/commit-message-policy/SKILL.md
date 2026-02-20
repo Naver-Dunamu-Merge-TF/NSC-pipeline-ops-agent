@@ -7,6 +7,11 @@ description: Commit message guidelines. Use when writing git commit messages, re
 
 ## Rules
 
+**0. Write in English** — Commit subject and body must be written in English.
+
+Bad: `로컬 메타 부산물을 무시해 작업 이력에 노이즈가 섞이지 않게 함`
+Good: `Ignore local metadata artifacts to keep history focused on product changes`
+
 **1. No Conventional Commits** — Do not use `fix:`, `feat:`, `chore:` or similar prefixes.
 
 **2. Focus on Why** — Explain reasoning, not what changed (the diff shows that).
