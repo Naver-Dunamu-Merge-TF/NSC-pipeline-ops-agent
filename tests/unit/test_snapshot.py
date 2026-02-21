@@ -40,6 +40,18 @@ def test_validate_snapshot_accepts_valid_payload() -> None:
     assert result == payload
 
 
+def test_validate_snapshot_accepts_review_gate_stage_and_needs_review_status() -> None:
+    payload = _valid_snapshot()
+    payload["event_type"] = "SESSION_DONE"
+    payload["stage"] = "REVIEW_GATE"
+    payload["status"] = "NEEDS_REVIEW"
+
+    result = validate_snapshot(payload)
+
+    assert result["stage"] == "REVIEW_GATE"
+    assert result["status"] == "NEEDS_REVIEW"
+
+
 def test_validate_snapshot_rejects_invalid_schema_version() -> None:
     payload = _valid_snapshot()
     payload["schema_version"] = "loop_snapshot.v2"

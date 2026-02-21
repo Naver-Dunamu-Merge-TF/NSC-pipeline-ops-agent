@@ -126,7 +126,8 @@ Spec 작성 ──→ Sudocode에 Issue DAG 등록 ──→ │ Sudocode가 Rea
                                 PR 리뷰 ←──│
                                            │ Merge
                                            │ 에이전트가 MCP로 체크리스트(DoD) 진행 상황 기록
-                                           │ PR 머지 시 데몬이 Issue status → closed
+                                           │ 세션 완료 시 Issue status → needs_review
+                                           │ PR 머지 확인 후 merge-closer가 Issue status → closed
                                            │ Sudocode 데몬이 후속 Issue blocker 자동 해소
 ```
 
@@ -140,7 +141,7 @@ GitHub Issues를 사용하지 않는다. 대신 **Sudocode**가 Issue(에픽/태
 3. Sudocode가 Ready 상태 Issue를 자동 감지 (`sudocode-mcp_ready` 폴링) → worktree 할당 + 에이전트 자동 스폰
 4. 에이전트가 MCP로 Issue 체크리스트 조회 + Spec `[[참조]]`로 컨텍스트 확보
 5. 구현 완료 후 PR 생성 (`gh pr create` 시 본문에 Sudocode Issue ID 명시)
-6. PR 머지 시 Sudocode 데몬이 Issue를 closed 처리하고 후속 Issue의 blocker를 자동 해소 → 새 Ready Issue 발생 (무한 루프)
+6. 세션 완료 시 Issue를 `needs_review`로 전이하고, PR 머지 확인 후에만 `closed` 처리하여 후속 Issue blocker를 자동 해소 → 새 Ready Issue 발생 (무한 루프)
 
 **Sudocode Issue의 역할**: 실행 컨텍스트의 중앙 저장소이자 의존성 DAG의 노드. 에이전트가 MCP로 직접 읽고 상태를 업데이트하므로, Issue 내용과 실제 작업 컨텍스트가 항상 일치한다.
 
@@ -166,7 +167,7 @@ GitHub Issues를 사용하지 않는다. 대신 **Sudocode**가 Issue(에픽/태
 | Gate 소속 | `tags` | `gate:G1` |
 | `source_doc` | `implements` 관계 | `[[SPEC-001]]` 링크 |
 | `depends_on` | `blocks` 관계 | DAG 엣지 |
-| `status` | `status` | open/in_progress/blocked/closed |
+| `status` | `status` | open/in_progress/needs_review/blocked/closed |
 | DoD 체크리스트 | `description` | 마크다운 체크리스트 |
 
 ### 동기화 방향: Sudocode가 SSOT
@@ -265,7 +266,7 @@ CI 자동 검증 (verification_level에 따라 L2/L3)
 PR 리뷰 (최종 판단)
   │
   ▼  (GitHub)
-Merge → Issue 자동 close
+Merge 확인(merge-closer) → Issue close
   │
   ▼  (필요 시)
 미결 항목 → ADR 승격 또는 Spec 수정 태스크 추가
@@ -310,6 +311,7 @@ Merge → Issue 자동 close
 - 에이전트의 PR 본문(자율 신고)에 의존하지 않고, **CI 단계에서 `git diff`를 기계적으로 검사**한다.
 - `docs/adr/*` (새로운 설계 결정) 또는 `.specs/*` (스펙 변경) 파일의 수정이 감지되면 자동 머지를 즉시 중단한다.
 - 강제 강등 절차: CI가 `gh pr merge --disable-auto`를 실행하여 머지 예약을 취소하고, PR에 `needs-review` 라벨을 부착하여 `approval: manual` 상태로 강등시켜 사람의 리뷰를 강제한다.
+- 용어 구분: Issue 상태값은 `needs_review`(underscore), PR 라벨은 `needs-review`(hyphen)이며 서로 대체되지 않는다.
 
 ### Spec 변경 cascading
 
@@ -338,7 +340,7 @@ GitHub Issues 대신 **Sudocode Issue**가 에이전트의 작업 지시서 역�
 | `title` | 작업 제목 | `프로젝트 스켈레톤 + LangGraph 골격을 구축한다` |
 | `description` | DoD 체크리스트 (마크다운) | `- [ ] graph/ 기본 뼈대가 생성돼 있다...` |
 | `priority` | 1(P0) / 2(P1) / 3(P2) | `1` |
-| `status` | open / in_progress / blocked / closed | `open` |
+| `status` | open / in_progress / needs_review / blocked / closed | `open` |
 | `tags` | Gate, verify level | `["gate:G2", "verify:L1"]` |
 | `blocks` 관계 | 후속 에픽 의존성 | `EPIC-09, EPIC-10` |
 | `implements` 관계 | 연결된 Spec | `[[SPEC-001]]` |
@@ -501,7 +503,7 @@ PR #42에서 threshold 기본값을 0.05로 설정했으나 Spec에 근거 없�
 
 | 산출물 | 시점 | 저장 위치 | 설명 |
 |--------|------|----------|------|
-| Sudocode Issue 상태 업데이트 | 세션 중/종료 시 | `.sudocode/issues/` | 에이전트가 MCP로 체크리스트 진행 상황 기록 (status는 PR 머지 시 데몬이 closed로 변경) |
+| Sudocode Issue 상태 업데이트 | 세션 중/종료 시 | `.sudocode/issues/` | 에이전트가 MCP로 체크리스트 진행 상황 기록 (세션 완료는 `needs_review`, `closed`는 PR 머지 확인 후 merge-closer만 수행) |
 | PR | 세션 종료 시 | GitHub Pull Requests | 변경 요약, 문서 영향, 미결/모호한 점을 PR body 구조에 맞게 생성 → `gh pr create` |
 | ADR 초안 | 작업 중 자율 판단 | `docs/adr/` | 설계 결정이 필요한 항목을 ADR 템플릿으로 작성. 사람은 "결정"과 "근거"만 채움 |
 
@@ -784,7 +786,8 @@ AI 에이전트는 시크릿 노출에 대한 감각이 없으므로 다중 방�
 │    │                   자동화 영역      │                         │
 │    │                                  ▼                         │
 │    ▼                                                            │
-│  Issue 자동 close                                               │
+│  Issue는 먼저 `needs_review` 상태로 유지                         │
+│  PR 머지 확인 후 merge-closer가 Issue close                      │
 │  Sudocode 데몬의 폴링 루프가 다음 Ready Issue 감지 → 에이전트에 자동 디스패치│
 │  (필요 시) ADR 초안 생성 → docs/adr/                              │
 │                                                                 │
@@ -833,6 +836,8 @@ AI 에이전트는 시크릿 노출에 대한 감각이 없으므로 다중 방�
 | 승인 | `approval:manual`, `approval:auto` |
 | 상태 | `blocked`, `needs-review` |
 | AI | `ai-generated` |
+
+- 상태 축의 `needs-review` 라벨은 PR fallback 신호다. Sudocode Issue 상태 전이는 `needs_review` 값을 사용한다.
 
 ### Milestone = Gate
 

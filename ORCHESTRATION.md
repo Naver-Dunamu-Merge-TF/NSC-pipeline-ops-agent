@@ -20,16 +20,18 @@
 ### Success Criteria
 - Multiple independent ready issues execute concurrently via worker pool
 - Each issue session preserves strict review order and retry policy
-- Overflow creates `[FIX]` issue and closes original issue
+- Overflow creates `[FIX]` issue and moves original issue to `needs_review`
 - Every stage produces valid snapshot JSON (`schema_version=loop_snapshot.v1`)
 - Dashboard can reconstruct timeline from snapshots without reading raw logs
 
 ## 2) Ground Rules and Invariants
 
 ### SSOT and State Rules
-- Sudocode issue state is SSOT for coarse status: `open -> in_progress -> closed`
+- Sudocode issue state is SSOT for coarse status: `open -> in_progress -> needs_review -> closed`
 - Session-stage state is not issue status; it is feedback snapshot data
 - One issue session remains serial internally, parallelism happens across issues
+- `closed` is merge-gated; all issues must pass `needs_review` before `closed`
+- Terminology is strict: issue status `needs_review` (underscore) vs PR label `needs-review` (hyphen)
 
 ### Prompt Rules
 - Runtime template source: `docs/prompts/prompt_template.md`
@@ -45,7 +47,7 @@
 - Overflow behavior:
   - Create `[FIX] {task_id}: {title}` issue
   - Link original -> fix issue
-  - Close original issue immediately
+  - Set original issue to `needs_review` (no direct close)
 - Completion gate:
   - Latest verification exit code must be `0`
   - Verification timestamp must be >= latest code-change timestamp in current session
@@ -92,8 +94,8 @@
    - Write `SESSION_START` snapshot with `session_id`, `orchestrator_id`
 4. Load issue details (`show_issue`) and render prompt from `docs/prompts/prompt_template.md`
 5. Run `SingleSessionOrchestrator.run_issue(...)`
-6. On `DONE`: close issue, write final success snapshot
-7. On `OVERFLOW`: create FIX issue, link issues, close original, write overflow snapshot
+6. On `DONE`: set issue to `needs_review`, write final success snapshot
+7. On `OVERFLOW`: create FIX issue, link issues, set original to `needs_review`, write overflow snapshot
 8. On `VERIFY_FAILED`: keep `in_progress` or mark policy status (recommended: keep `in_progress` + failure snapshot)
 9. Repeat loop
 
@@ -185,7 +187,7 @@ Required fields:
 - `task_id`: string
 - `event_type`: enum
 - `stage`: enum
-- `status`: `"START" | "PASS" | "FAIL" | "FIX_CREATED" | "VERIFY_FAILED"`
+- `status`: `"START" | "PASS" | "FAIL" | "FIX_CREATED" | "VERIFY_FAILED" | "NEEDS_REVIEW"`
 - `attempts`: object
 - `failed_items`: string[]
 - `fix_list`: string[]
@@ -214,6 +216,7 @@ Required fields:
 - `QUALITY_FIX`
 - `VERIFICATION`
 - `OVERFLOW`
+- `REVIEW_GATE`
 - `DONE`
 
 `verify` object:
@@ -283,7 +286,8 @@ Error handling rules:
 ### Acceptance Checklist
 - [ ] Parallel dispatch executes at least 2 ready issues concurrently
 - [ ] Per-issue stage order never violates spec-before-quality
-- [ ] Overflow creates FIX issue and closes original
+- [ ] Overflow creates FIX issue and moves original to `needs_review`
+- [ ] All closes happen only after `needs_review` via merge-confirmed close path
 - [ ] Snapshot payloads all validate as `loop_snapshot.v1`
 - [ ] Dashboard timeline reconstructs from feedback only
 

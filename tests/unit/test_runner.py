@@ -88,12 +88,13 @@ class IntegrationGateway:
         }
 
 
-def test_run_dry_run_reports_done_session() -> None:
+def test_run_dry_run_reports_done_session_to_needs_review() -> None:
     result = run_dry_run()
 
     assert result["processed_issue"] == "i-dry1"
     assert result["last_event_type"] == "SESSION_DONE"
     assert result["snapshot_count"] >= 3
+    assert result["status_updates"][-1] == ("i-dry1", "needs_review")
 
 
 def test_issue_session_runner_claims_then_renders_prompt_and_runs_orchestrator() -> (
@@ -136,6 +137,33 @@ def test_issue_session_runner_claims_then_renders_prompt_and_runs_orchestrator()
     _, snapshot_json = gateway.feedback[0]
     snapshot = validate_snapshot(json.loads(snapshot_json))
     assert snapshot["event_type"] == "SESSION_START"
+
+
+def test_issue_session_runner_reopens_when_orchestrator_errors() -> None:
+    gateway = IntegrationGateway()
+
+    class FailingOrchestrator:
+        def run_issue(self, **kwargs: object) -> SessionOutcome:
+            _ = kwargs
+            raise RuntimeError("orchestrator boom")
+
+    runner = IssueSessionRunner(
+        gateway=gateway,
+        orchestrator=FailingOrchestrator(),
+        orchestrator_id="orch-main",
+        prompt_template="Task {{task_id}} {{title}} {{dod_checklist_full}}",
+        implementer=lambda _prompt, _fixes: None,  # type: ignore[arg-type]
+        spec_reviewer=lambda _prompt, _result, _attempt: None,  # type: ignore[arg-type]
+        quality_reviewer=lambda _prompt, _result, _attempt: None,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RuntimeError, match="orchestrator boom"):
+        runner.poll_ready_and_run_once()
+
+    assert gateway.status_updates == [
+        ("i-abc1", "in_progress"),
+        ("i-abc1", "open"),
+    ]
 
 
 def test_claim_issue_sets_in_progress_and_emits_session_start_snapshot() -> None:

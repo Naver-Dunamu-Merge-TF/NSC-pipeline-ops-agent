@@ -171,19 +171,19 @@ class SingleSessionOrchestrator:
                 )
                 return SessionOutcome(final_state="VERIFY_FAILED", fix_issue_id=None)
 
-            self.gateway.set_issue_status(issue.issue_id, "closed")
+            self.gateway.set_issue_status(issue.issue_id, "needs_review")
             self._snapshot(
                 issue=issue,
                 session_id=resolved_session_id,
                 orchestrator_id=orchestrator_id,
                 event_type="SESSION_DONE",
-                stage="DONE",
-                status="PASS",
+                stage="REVIEW_GATE",
+                status="NEEDS_REVIEW",
                 spec_attempt=spec_attempt,
                 quality_attempt=quality_attempt,
                 verify=implementer_result.verification,
             )
-            return SessionOutcome(final_state="DONE", fix_issue_id=None)
+            return SessionOutcome(final_state="NEEDS_REVIEW", fix_issue_id=None)
         except Exception as exc:
             self._snapshot(
                 issue=issue,
@@ -231,15 +231,15 @@ class SingleSessionOrchestrator:
             verification=verification,
         )
         fix_issue_id = self.gateway.create_fix_issue(fix_title, fix_body)
-        self.gateway.link_issues(issue.issue_id, fix_issue_id, "related")
-        self.gateway.set_issue_status(issue.issue_id, "closed")
+        self.gateway.link_issues(issue.issue_id, fix_issue_id, "depends-on")
+        self.gateway.set_issue_status(issue.issue_id, "needs_review")
         self._snapshot(
             issue=issue,
             session_id=session_id,
             orchestrator_id=orchestrator_id,
             event_type="OVERFLOW_FIX_CREATED",
-            stage="OVERFLOW",
-            status="FIX_CREATED",
+            stage="REVIEW_GATE",
+            status="NEEDS_REVIEW",
             spec_attempt=spec_attempt,
             quality_attempt=quality_attempt,
             failed_items=failed_items,

@@ -56,7 +56,9 @@ def _validated_snapshots(gateway: FakeGateway) -> list[dict[str, object]]:
     return [validate_snapshot(json.loads(content)) for _, content in gateway.feedback]
 
 
-def test_overflow_on_third_spec_failure_closes_original_and_creates_fix() -> None:
+def test_overflow_on_third_spec_failure_gates_original_for_review_and_creates_fix() -> (
+    None
+):
     gateway = FakeGateway([], [], [], [])
     now = datetime(2026, 2, 21, 9, 0, tzinfo=timezone.utc)
     quality_calls = 0
@@ -96,15 +98,15 @@ def test_overflow_on_third_spec_failure_closes_original_and_creates_fix() -> Non
     )
 
     assert outcome.final_state == "OVERFLOW"
-    assert gateway.status_updates[-1] == ("i-abc1", "closed")
+    assert gateway.status_updates[-1] == ("i-abc1", "needs_review")
     assert quality_calls == 0
     assert gateway.created_fix_issues
     assert gateway.created_fix_issues[0][0] == "[FIX] DEV-001: Lock SSOT schema"
-    assert ("i-abc1", "i-fix01", "related") in gateway.links
+    assert ("i-abc1", "i-fix01", "depends-on") in gateway.links
     snapshots = _validated_snapshots(gateway)
     assert snapshots[-1]["event_type"] == "OVERFLOW_FIX_CREATED"
-    assert snapshots[-1]["stage"] == "OVERFLOW"
-    assert snapshots[-1]["status"] == "FIX_CREATED"
+    assert snapshots[-1]["stage"] == "REVIEW_GATE"
+    assert snapshots[-1]["status"] == "NEEDS_REVIEW"
 
 
 def test_quality_runs_only_after_spec_pass() -> None:
@@ -158,8 +160,8 @@ def test_quality_runs_only_after_spec_pass() -> None:
     assert spec_calls == 2
     assert quality_calls == 1
     assert impl_calls == 2
-    assert outcome.final_state == "DONE"
-    assert gateway.status_updates[-1] == ("i-abc1", "closed")
+    assert outcome.final_state == "NEEDS_REVIEW"
+    assert gateway.status_updates[-1] == ("i-abc1", "needs_review")
     snapshots = _validated_snapshots(gateway)
     event_types = [snapshot["event_type"] for snapshot in snapshots]
     assert event_types == [
@@ -170,6 +172,8 @@ def test_quality_runs_only_after_spec_pass() -> None:
         "QUALITY_REVIEW_PASS",
         "SESSION_DONE",
     ]
+    assert snapshots[-1]["stage"] == "REVIEW_GATE"
+    assert snapshots[-1]["status"] == "NEEDS_REVIEW"
 
 
 def test_done_requires_fresh_verify_exit_code_zero() -> None:
@@ -201,7 +205,44 @@ def test_done_requires_fresh_verify_exit_code_zero() -> None:
     )
 
     assert outcome.final_state == "VERIFY_FAILED"
+    assert gateway.status_updates[-1] == ("i-abc1", "in_progress")
     assert ("i-abc1", "closed") not in gateway.status_updates
+    snapshots = _validated_snapshots(gateway)
+    assert snapshots[-1]["event_type"] == "VERIFY_FAILED"
+    assert snapshots[-1]["stage"] == "VERIFICATION"
+    assert snapshots[-1]["status"] == "VERIFY_FAILED"
+
+
+def test_done_requires_verify_timestamp_not_stale() -> None:
+    gateway = FakeGateway([], [], [], [])
+    now = datetime(2026, 2, 21, 11, 30, tzinfo=timezone.utc)
+
+    def implementer(_: str, __: list[str] | None) -> ImplementerResult:
+        return ImplementerResult(
+            verification=VerificationEvidence(
+                command="pytest tests/unit -x",
+                output="ok",
+                exit_code=0,
+                produced_at=now - timedelta(seconds=1),
+            ),
+            code_changed_at=now,
+            notes="implemented",
+        )
+
+    def pass_reviewer(_: str, __: ImplementerResult, ___: int) -> ReviewResult:
+        return ReviewResult(passed=True, failed_items=[], fix_list=[], notes="pass")
+
+    orchestrator = SingleSessionOrchestrator(gateway=gateway)
+    outcome = orchestrator.run_issue(
+        issue=_issue(),
+        rendered_prompt=_rendered_prompt(),
+        implementer=implementer,
+        spec_reviewer=pass_reviewer,
+        quality_reviewer=pass_reviewer,
+    )
+
+    assert outcome.final_state == "VERIFY_FAILED"
+    assert gateway.status_updates[-1] == ("i-abc1", "in_progress")
     snapshots = _validated_snapshots(gateway)
     assert snapshots[-1]["event_type"] == "VERIFY_FAILED"
     assert snapshots[-1]["stage"] == "VERIFICATION"
@@ -249,7 +290,7 @@ def test_quality_fix_event_is_emitted_when_quality_retry_happens() -> None:
         quality_reviewer=quality_reviewer,
     )
 
-    assert outcome.final_state == "DONE"
+    assert outcome.final_state == "NEEDS_REVIEW"
     snapshots = _validated_snapshots(gateway)
     event_types = [snapshot["event_type"] for snapshot in snapshots]
     assert "QUALITY_REVIEW_FAIL" in event_types

@@ -42,7 +42,7 @@ class ReviewResult:
 
 @dataclass(frozen=True)
 class SessionOutcome:
-    final_state: Literal["DONE", "OVERFLOW", "VERIFY_FAILED"]
+    final_state: Literal["DONE", "NEEDS_REVIEW", "OVERFLOW", "VERIFY_FAILED"]
     fix_issue_id: str | None
 
 

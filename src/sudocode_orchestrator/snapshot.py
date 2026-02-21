@@ -46,6 +46,7 @@ STAGES = {
     "QUALITY_FIX",
     "VERIFICATION",
     "OVERFLOW",
+    "REVIEW_GATE",
     "DONE",
 }
 
@@ -55,6 +56,7 @@ STATUSES = {
     "FAIL",
     "FIX_CREATED",
     "VERIFY_FAILED",
+    "NEEDS_REVIEW",
 }
 
 TOP_LEVEL_STRING_FIELDS = {

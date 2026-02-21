@@ -47,7 +47,7 @@ Example:
   "last_event_type": "SESSION_DONE",
   "processed_issue": "i-dry1",
   "snapshot_count": 5,
-  "status_updates": [["i-dry1", "in_progress"], ["i-dry1", "in_progress"], ["i-dry1", "closed"]]
+  "status_updates": [["i-dry1", "in_progress"], ["i-dry1", "in_progress"], ["i-dry1", "needs_review"]]
 }
 ```
 
@@ -132,10 +132,15 @@ Primary event types:
 
 Expected terminal outcomes:
 
-- Success: `SESSION_DONE` and issue status set to `closed`
+- Success: `SESSION_DONE` and issue status set to `needs_review` (close is merge-gated)
 - Verify failure: `VERIFY_FAILED` and issue remains not closed
-- Overflow: `[FIX]` issue created, original issue linked and closed
+- Overflow: `[FIX]` issue created, original issue linked and moved to `needs_review`
 - Runtime exception after claim: `SESSION_ERROR` and issue reopened (`open`) by runner safeguard
+
+Policy note:
+
+- All issues must pass `needs_review` before `closed`.
+- `needs_review` (issue status) is not the same as `needs-review` (PR label used for manual-review fallback signaling).
 
 ## Operational Checks
 
