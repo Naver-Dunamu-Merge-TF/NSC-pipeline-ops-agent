@@ -15,15 +15,16 @@ You are executing a dispatcher-generated task.
 - Keep changes minimal and aligned to task intent.
 
 ### Acceptance Checklist (Full DoD Injection)
-The section below is the source of truth for acceptance and must be reviewed line by line.
+Treat the injected checklist below as the source of truth and review it line by line.
 
 {{dod_checklist_full}}
 
 ### Ordered Workflow (Do Not Reorder)
 1) implementer
-- Implement the task and provide verification evidence.
+- Implement the task and provide current-attempt verification evidence.
 
 2) spec reviewer
+- Start after implementer output.
 - Review against every injected DoD line item.
 - If any item fails, return a fix list to implementer.
 
@@ -32,8 +33,14 @@ The section below is the source of truth for acceptance and must be reviewed lin
 - Validate code quality, safety, and maintainability.
 - If quality fails, return a fix list to implementer.
 
+### Sub-Agent Delegation Policy (All Roles)
+- implementer, spec reviewer, and code quality reviewer MAY delegate independent subtasks to sub-agents, including parallel execution.
+- Delegation MUST preserve the Ordered Workflow and review gates.
+- Each role remains accountable for its final step output (evidence or PASS/FAIL with fix list).
+- Delegation MUST remain within this task scope and MUST NOT bypass retry/overflow policies.
+- If sub-agent outputs conflict or touch shared mutable state/files, resolve and integrate sequentially before completing the role step.
+
 ### Review Loop Policy
-- Quality review cannot begin before spec PASS.
 - Spec review/fix loop limit: max 3 attempts total.
 - Quality review/fix loop limit: max 2 attempts total.
 - If a reviewer fails at its final allowed attempt, stop normal loop and trigger overflow handling.
@@ -44,12 +51,7 @@ If SPEC_REVIEW fails at attempt 3/3 or QUALITY_REVIEW fails at attempt 2/2, crea
 
 FIX prompt requirements:
 - title: [FIX] {task_id}: {title}
-- body must include all of:
-  - original task id
-  - overflow reason
-  - failed acceptance items
-  - latest verification evidence/output
-  - full original DoD
+- body must include all of: original task id, overflow reason, failed acceptance items, latest verification evidence/output, full original DoD.
 
 ### Verification Before Completion
 - Do not mark DONE without fresh verification evidence from the current attempt.
