@@ -5,8 +5,9 @@
 
 **표기 규칙**
 - `[사람]` — 직접 실행/결정
-- `[AI]` — Claude Code에 요청하면 파일 생성
-- `[AI→CLI]` — Claude Code가 gh/shell 명령어 직접 실행
+- `[AI]` — superpowers 스킬 체인을 사용하는 코딩 에이전트에 요청하면 파일 생성
+- `[AI→CLI]` — 코딩 에이전트가 gh/shell 명령어 직접 실행
+- 기본 스킬 체인: `brainstorming` → `writing-plans` → `test-driven-development`/`systematic-debugging` → `verification-before-completion` → `requesting-code-review` → `create-pr`/`create-adr`
 
 ---
 
@@ -105,10 +106,10 @@ pre-commit --version
 
 ---
 
-### 0-5. Oh My OpenCode 설치/설정 `[사람]`
+### 0-5. 코딩 에이전트 실행 환경 설치/설정 `[사람]`
 
-- Oh My OpenCode 설치 (공식 가이드 참조)
-- GPT Pro 계정 연동
+- superpowers 기반 코딩 에이전트 런타임 설치 (공식 가이드 참조)
+- 사용 모델 계정 연동 (예: GPT/Claude)
 - 로컬 실행 확인
 
 ---
@@ -161,8 +162,8 @@ git worktree remove ../repo-{task_id}
    ```bash
    sudocode init
    ```
-3. OpenCode에 MCP 서버 등록:
-   `opencode.json` 파일에 다음 설정 추가:
+3. 코딩 에이전트 런타임에 MCP 서버 등록:
+   런타임 설정 파일(`opencode.json`)에 다음 설정 추가:
    ```json
    {
      "mcp": {
@@ -174,17 +175,17 @@ git worktree remove ../repo-{task_id}
    }
    ```
 
-**완료 확인:** `sudocode server` 실행 후 `http://localhost:3000` 로컬 접속 성공 및 OpenCode에서 `sudocode.upsert_issue` 도구 확인
+**완료 확인:** `sudocode server` 실행 후 `http://localhost:3000` 로컬 접속 성공 및 코딩 에이전트에서 `sudocode.upsert_issue` 도구 확인
 
 ---
 
 ## G1. 저장소 뼈대
 
-디렉토리 구조 + 핵심 설정 파일. 1-1~1-3은 Claude Code에 요청.
+디렉토리 구조 + 핵심 설정 파일. 1-1~1-3은 코딩 에이전트에 요청.
 
 ### 1-1. 디렉토리 구조 생성 `[AI]`
 
-**Claude Code에:** "디렉토리 구조 만들어줘"
+**코딩 에이전트에:** "디렉토리 구조 만들어줘"
 
 **생성될 구조:**
 ```
@@ -208,7 +209,7 @@ git worktree remove ../repo-{task_id}
 
 ### 1-2. .gitignore 작성 `[AI]`
 
-**Claude Code에:** ".gitignore 작성해줘"
+**코딩 에이전트에:** ".gitignore 작성해줘"
 
 포함 항목: `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `.env`, `*.egg-info/`, `.DS_Store`, `Thumbs.db`, `.idea/`, `.vscode/`
 
@@ -216,7 +217,7 @@ git worktree remove ../repo-{task_id}
 
 ### 1-3. AGENTS.md 작성 `[AI]`
 
-**Claude Code에:** "AGENTS.md 작성해줘"
+**코딩 에이전트에:** "AGENTS.md 작성해줘"
 
 **포함될 섹션:**
 - `## 프로젝트 개요` — 워크플로 구조 한 줄 설명
@@ -269,7 +270,7 @@ GitHub 라벨/마일스톤 대신 Sudocode 로컬 서버를 기본 상태 관리
 
 ### 2-1. Spec 문서 → Sudocode Spec 등록 `[AI]`
 
-**Claude Code에:** "현재 `docs/coding_agent/` 안의 문서를 Sudocode MCP(`sudocode.upsert_spec`)를 사용해 Spec으로 등록해줘"
+**코딩 에이전트에:** "현재 `docs/coding_agent/` 안의 문서를 Sudocode MCP(`sudocode.upsert_spec`)를 사용해 Spec으로 등록해줘"
 
 **예시:**
 - `coding_agent_spec.md` → SPEC-001
@@ -295,7 +296,7 @@ GitHub 라벨/마일스톤 대신 Sudocode 로컬 서버를 기본 상태 관리
 
 ### 3-1. .pre-commit-config.yaml 작성 `[AI]`
 
-**Claude Code에:** "pre-commit config 작성해줘"
+**코딩 에이전트에:** "pre-commit config 작성해줘"
 
 ```yaml
 repos:
@@ -340,7 +341,7 @@ rm test_secret.txt
 
 ### 4-1. L2 검증 워크플로 `[AI]`
 
-**Claude Code에:** "L2 CI 워크플로 작성해줘"
+**코딩 에이전트에:** "L2 CI 워크플로 작성해줘"
 
 **생성 파일:** `.github/workflows/ci-l2.yml`
 
@@ -352,7 +353,7 @@ rm test_secret.txt
 
 ### 4-2. gitleaks CI 스캔 `[AI]`
 
-**Claude Code에:** "보안 스캔 워크플로 작성해줘"
+**코딩 에이전트에:** "보안 스캔 워크플로 작성해줘"
 
 **생성 파일:** `.github/workflows/ci-security.yml`
 
@@ -363,7 +364,7 @@ rm test_secret.txt
 
 ### 4-3. Drift 감지 워크플로 `[AI]`
 
-**Claude Code에:** "drift 감지 워크플로 작성해줘"
+**코딩 에이전트에:** "drift 감지 워크플로 작성해줘"
 
 **생성 파일:** `.github/workflows/ci-drift.yml`
 
@@ -375,7 +376,7 @@ rm test_secret.txt
 
 ### 4-4. 주간 리포트 워크플로 (선택) `[AI]`
 
-**Claude Code에:** "주간 리포트 워크플로 작성해줘"
+**코딩 에이전트에:** "주간 리포트 워크플로 작성해줘"
 
 **생성 파일:** `.github/workflows/weekly-report.yml`
 
@@ -387,7 +388,7 @@ rm test_secret.txt
 
 ### 4-5. Auto-Merge 워크플로 `[AI]`
 
-**Claude Code에:** "Auto-Merge 워크플로 작성해줘"
+**코딩 에이전트에:** "Auto-Merge 워크플로 작성해줘"
 
 **생성 파일:** `.github/workflows/auto-merge.yml`
 
@@ -417,9 +418,9 @@ git push origin main
 
 에이전트 팀이 Issue/PR/ADR 생성 시 사용하는 프롬프트 템플릿과 리포트 스크립트.
 
-### 5-1. skills/pr.md `[AI]`
+### 5-1. skills/create-pr/SKILL.md `[AI]`
 
-**Claude Code에:** "PR 생성 스킬 작성해줘"
+**코딩 에이전트에:** "create-pr 스킬 작성(또는 업데이트)해줘"
 
 에이전트가 작업 완료 후 `gh pr create`를 실행하는 프롬프트 템플릿.
 
@@ -433,9 +434,9 @@ git push origin main
 
 ---
 
-### 5-2. skills/adr.md `[AI]`
+### 5-2. skills/create-adr/SKILL.md `[AI]`
 
-**Claude Code에:** "ADR 스킬 작성해줘"
+**코딩 에이전트에:** "create-adr 스킬 작성(또는 업데이트)해줘"
 
 에이전트가 설계 결정 발생 시 `docs/adr/NNNN-title.md`를 작성하는 프롬프트 템플릿.
 
@@ -447,7 +448,7 @@ git push origin main
 
 ### 5-3. scripts/weekly_report.py `[AI]`
 
-**Claude Code에:** "weekly_report.py 작성해줘"
+**코딩 에이전트에:** "weekly_report.py 작성해줘"
 
 **기능:**
 - GitHub API로 `ai-generated` + merged PR 수집
@@ -478,7 +479,7 @@ git push origin main
 
 ### 6-2. Roadmap 초안 생성 `[AI]`
 
-**Claude Code에:** "방금 작성한 Spec 읽고 Roadmap 초안 만들어줘"
+**코딩 에이전트에:** "방금 작성한 Spec 읽고 Roadmap 초안 만들어줘"
 
 **생성 파일:** `.roadmap/roadmap.md`
 
@@ -514,7 +515,7 @@ git push origin main
 ### 6-5. 결과 리뷰 + 조정 `[사람]`
 
 확인 항목:
-- [ ] PR body에 Sudocode Issue ID, 문서 영향/미결사항, Momus 서명이 포함되었는가? (skills/pr.md 양식)
+- [ ] PR body에 Sudocode Issue ID, 문서 영향/미결사항, Momus 서명이 포함되었는가? (`skills/create-pr/SKILL.md` 양식)
 - [ ] CI(Auto-Merge 등)가 정상 동작했는가?
 - [ ] PR 머지 시 데몬이 Issue 상태를 `closed`로 자체 전환했는가?
 - [ ] 에이전트 세션 종료 및 Issue closed 후 후속 의존성 에픽이 Ready 상태로 자동 전환(blocker 해소)되는지 웹 UI에서 확인

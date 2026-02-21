@@ -38,11 +38,11 @@ cat > /tmp/pr-body.md << 'EOF'
 ## 변경 요약
 
 <!-- 무엇을 왜 변경했는지. diff가 보여주는 내용이 아닌 이유와 맥락에 집중한다.
-     Sudocode Issue ID를 반드시 명시한다 (예: EPIC-05).
+     PR body에 canonical 필드 `Sudocode-Issue: i-xxxx`를 반드시 1회 명시한다.
      "Closes #NNN" 문법은 사용하지 않는다 — 이 프로젝트는 GitHub Issues를 사용하지 않으며,
      Issue close는 PR 머지 시 Sudocode 데몬이 자동 처리한다. -->
 
-Sudocode Issue: <issue-id>
+Sudocode-Issue: <issue-id>
 
 <이 PR이 해결하는 문제나 요구사항을 설명한다>
 
@@ -65,7 +65,7 @@ ADR: <!-- 작성했으면 링크, 없으면 "없음" -->
 ## 세션 요약
 
 <!-- 운영 지표 수집용 필수 필드 (weekly_report.py가 참조한다): -->
-- ralph-loop 반복 횟수: <!-- N회 -->
+- 실행 루프 반복 횟수: <!-- N회 -->
 - L0/L1 실패 항목: <!-- 있으면 기재, 없으면 "없음" -->
 - Draft PR 여부: <!-- 아니오 / 예 (사유: ...) -->
 - 사람 개입: <!-- 없음 / 있었다면 어떤 판단이 필요했는지 -->
