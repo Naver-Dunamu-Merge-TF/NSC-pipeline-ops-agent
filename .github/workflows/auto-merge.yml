@@ -1,0 +1,91 @@
+name: Auto Merge
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  auto-merge:
+    name: Evaluate and Apply Auto Merge Policy
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.state == 'open' && github.event.pull_request.draft == false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Evaluate auto-merge gates
+        id: gates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          labels=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels" --jq '.[].name' || true)
+          if ! printf '%s\n' "$labels" | grep -Fxq "approval:auto"; then
+            echo "result=skip" >> "$GITHUB_OUTPUT"
+            echo "reason=approval:auto label not present" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+          if printf '%s\n' "$files" | grep -E '^(\.specs/|docs/adr/)'; then
+            echo "result=fallback" >> "$GITHUB_OUTPUT"
+            echo "reason=Protected intent docs changed (.specs/ or docs/adr/)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr_body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body // ""')
+          if ! printf '%s\n' "$pr_body" | grep -Fq "Reviewed-by: Momus (Local)"; then
+            echo "result=fallback" >> "$GITHUB_OUTPUT"
+            echo "reason=Missing required PR body signature" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          check_lines=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // \"null\")"' || true)
+          filtered=$(printf '%s\n' "$check_lines" | grep -Ev '^(Auto Merge|Evaluate and Apply Auto Merge Policy)' || true)
+
+          if [ -z "$filtered" ]; then
+            echo "result=fallback" >> "$GITHUB_OUTPUT"
+            echo "reason=No CI check-runs found for this PR head" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          failed_check=$(printf '%s\n' "$filtered" | awk -F '\t' '$3 ~ /^(failure|timed_out|cancelled|action_required|startup_failure|stale)$/ {print $1; exit}')
+          if [ -n "$failed_check" ]; then
+            echo "result=fallback" >> "$GITHUB_OUTPUT"
+            echo "reason=CI failure in check '$failed_check'" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+          echo "reason=Criteria met, enabling auto-merge (GitHub waits for checks)" >> "$GITHUB_OUTPUT"
+
+      - name: Apply auto-merge and approval
+        if: steps.gates.outputs.result == 'pass'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr review "$PR_URL" --repo "$REPO" --approve || true
+          gh pr merge "$PR_URL" --repo "$REPO" --auto --squash
+
+      - name: Fallback to manual review
+        if: steps.gates.outputs.result == 'fallback'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh pr merge "$PR_URL" --repo "$REPO" --disable-auto || true
+
+          gh label create "needs-review" --repo "$REPO" --color FFB900 --description "Manual review required" || true
+          gh label create "approval:manual" --repo "$REPO" --color B60205 --description "Manual approval required" || true
+          gh label create "approval:auto" --repo "$REPO" --color 0E8A16 --description "Auto approval eligible" || true
+
+          gh pr edit "$PR_URL" --repo "$REPO" --add-label "needs-review" --add-label "approval:manual" --remove-label "approval:auto"
+          gh pr comment "$PR_URL" --repo "$REPO" --body "Auto-merge downgraded to manual: ${{ steps.gates.outputs.reason }}"
