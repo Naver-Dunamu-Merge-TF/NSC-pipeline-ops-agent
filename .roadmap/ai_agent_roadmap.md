@@ -1,8 +1,3 @@
-<!-- AI 워크플로 실행 원칙 -->
-> **[CRITICAL RULE] 1 Task = 1 PR**
-> - 에이전트는 한 번의 세션에서 **단 하나의 DEV 태스크**만 수행하고 즉시 PR을 생성해야 합니다.
-> - 범위를 넘어서는 오버엔지니어링이나 다른 태스크의 파일을 수정하는 것을 엄격히 금지합니다.
-> - `.specs/`나 핵심 설정을 변경하는 태스크는 `approval: manual`로 지정되어 사람이 직접 리뷰해야 합니다.
 
 ## G1: Spec & 실행 환경 인터페이스가 “개발 가능 상태”로 고정된다
 
@@ -283,6 +278,42 @@ backlog
 * [ ] `config/databricks_jobs.yaml`(또는 동등)에 파이프라인/액션 → Databricks Job ID 매핑이 정의돼 있다(환경별 값은 추후 주입 가능)
 * [ ] 설정 로딩/검증 테스트(숫자 타입, 중복 키, 누락)가 존재한다
 * [ ] 문서(`.specs/runtime_config.md`)에 “어디에 Job ID를 넣는지”가 명시돼 있다
+* [ ] 기존 CI가 모두 통과한다
+
+### Epic: [EPIC-35] G1 게이트 통합 리뷰를 수행한다
+
+#### DEV-048: G1 통합 리뷰를 완료하면 Spec & 실행 환경 인터페이스의 개발 가능 상태를 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L1
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-001, DEV-002, DEV-003, DEV-004, DEV-005, DEV-006, DEV-007, DEV-008
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G1 범위 태스크(DEV-001~DEV-008)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G1 목표(“Spec & 실행 환경 인터페이스가 개발 가능 상태로 고정”) 달성 여부와 근거(테스트/문서/설정)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
 * [ ] 기존 CI가 모두 통과한다
 
 ---
@@ -750,6 +781,42 @@ backlog
 * [ ] 조건 엣지(컷오프 지연, analyze 스킵, rollback 분기)가 깨지면 CI에서 실패한다
 * [ ] 기존 CI가 모두 통과한다
 
+### Epic: [EPIC-36] G2 게이트 통합 리뷰를 수행한다
+
+#### DEV-049: G2 통합 리뷰를 완료하면 감지/수집/리포트 경로의 결정적 동작을 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L2
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-009, DEV-010, DEV-011, DEV-012, DEV-013, DEV-014, DEV-015, DEV-016, DEV-017, DEV-018, DEV-019, DEV-020, DEV-021
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G2 범위 태스크(DEV-009~DEV-021)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G2 목표(“감지/수집/리포트 경로가 LLM 없이도 결정적으로 동작”) 달성 여부와 근거(테스트/스모크/로그)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
+* [ ] 기존 CI가 모두 통과한다
+
 ---
 
 ## G3: LLM 분석/트리아지가 “스키마-강제 + 안전한 제안” 형태로 생성된다
@@ -936,6 +1003,42 @@ backlog
 * [ ] fallback 결과가 `skip_and_report`를 생성하고, report_only 경로로 이어질 수 있다
 * [ ] Transient 재시도 소진 후 fallback/에스컬레이션 정책이 테스트로 고정돼 있다
 * [ ] 경계 테스트(캡 정확히 도달/초과, 연속 실패 횟수 경계)가 존재한다
+* [ ] 기존 CI가 모두 통과한다
+
+### Epic: [EPIC-37] G3 게이트 통합 리뷰를 수행한다
+
+#### DEV-050: G3 통합 리뷰를 완료하면 LLM 분석/트리아지의 스키마-강제 + 안전한 제안 경로를 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L2
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-022, DEV-023, DEV-024, DEV-025, DEV-026
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G3 범위 태스크(DEV-022~DEV-026)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G3 목표(“LLM 분석/트리아지가 스키마-강제 + 안전한 제안 형태로 생성”) 달성 여부와 근거(테스트/스모크/가드레일)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
 * [ ] 기존 CI가 모두 통과한다
 
 ---
@@ -1158,6 +1261,42 @@ backlog
 * [ ] 30분 경과 시 `APPROVAL_REMINDER`가 **1회만** 전송된다(중복 방지)
 * [ ] 60분 경과 시 `final_status="escalated"`로 전환되고 `APPROVAL_TIMEOUT` 이벤트가 전송된다(자동 실행 금지)
 * [ ] 경계 테스트(정확히 30/60분, 이미 리마인드 발송된 케이스)가 존재한다
+* [ ] 기존 CI가 모두 통과한다
+
+### Epic: [EPIC-38] G4 게이트 통합 리뷰를 수행한다
+
+#### DEV-051: G4 통합 리뷰를 완료하면 HITL 승인/타임아웃/알림 운영 플로우를 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L2
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-027, DEV-028, DEV-029, DEV-030, DEV-031, DEV-032
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G4 범위 태스크(DEV-027~DEV-032)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G4 목표(“HITL 승인(Interrupt/CLI/Timeout)과 알림이 운영 플로우로 고정”) 달성 여부와 근거(테스트/스모크/이벤트 로그)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
 * [ ] 기존 CI가 모두 통과한다
 
 ---
@@ -1416,6 +1555,42 @@ backlog
 * [ ] 시나리오 A/B/C/D/F의 `final_status`와 알림 이벤트 타입이 기대와 일치한다
 * [ ] 실행 방법(runbook)이 문서로 남아 있다
 * [ ] staging에서 최소 A/E 1회 스모크가 성공한다
+* [ ] 기존 CI가 모두 통과한다
+
+### Epic: [EPIC-39] G5 게이트 통합 리뷰를 수행한다
+
+#### DEV-052: G5 통합 리뷰를 완료하면 실행/검증/롤백/포스트모템 End-to-End 안전 경로를 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L3
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-033, DEV-034, DEV-035, DEV-036, DEV-037, DEV-038, DEV-039
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G5 범위 태스크(DEV-033~DEV-039)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G5 목표(“실행/검증/롤백/포스트모템까지 안전한 End-to-End 완성”) 달성 여부와 근거(검증 결과/스모크/운영 기록)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
 * [ ] 기존 CI가 모두 통과한다
 
 ---
@@ -1705,3 +1880,39 @@ backlog
 * [ ] 승인 타임아웃 강제 케이스에서 30분 리마인드/60분 에스컬레이션 이벤트가 확인된다
 * [ ] deterministic eval은 CI에서 상시 통과, judge eval은 수동/야간 경로로 실행 가능하다
 * [ ] 운영 runbook(실패 시 확인 순서: Log Analytics → LangFuse trace → 체크포인터 상태)이 업데이트돼 있다
+
+### Epic: [EPIC-40] G6 게이트 통합 리뷰를 수행한다
+
+#### DEV-053: G6 통합 리뷰를 완료하면 LLMOps(관측/버전/평가) + 배포 구성의 운영 가능 상태를 게이트 단위로 확정할 수 있다
+
+##### priority
+
+P0
+
+##### verify
+
+L3
+
+##### approval
+
+manual
+
+##### source_doc
+
+`.specs/ai_agent_spec.md`
+
+##### depends_on
+
+DEV-040, DEV-041, DEV-042, DEV-043, DEV-044, DEV-045, DEV-046, DEV-047
+
+##### status
+
+backlog
+
+##### DoD
+
+* [ ] G6 범위 태스크(DEV-040~DEV-047)의 DoD 충족 여부가 체크리스트로 정리돼 있다
+* [ ] G6 목표(“LLMOps(관측/버전/평가) + 배포 구성이 운영 가능한 상태로 종료”) 달성 여부와 근거(관측/배포/평가 결과)가 기록돼 있다
+* [ ] 문서 영향(`.specs/`, `docs/adr/`, `.roadmap/`)과 불일치 여부가 점검돼 있다
+* [ ] 미해결 리스크/후속 액션이 명시돼 있다
+* [ ] 기존 CI가 모두 통과한다
