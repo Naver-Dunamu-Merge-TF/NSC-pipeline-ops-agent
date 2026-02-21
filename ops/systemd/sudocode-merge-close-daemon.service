@@ -1,0 +1,26 @@
+[Unit]
+Description=Sudocode merge-close daemon (primary close authority; CI audit-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Intended scope: user service via systemctl --user
+WorkingDirectory=%h/dev/NSC-pipeline-ops-agent
+EnvironmentFile=%h/.config/sudocode/sudocode-merge-close-daemon.env
+
+ExecStartPre=/usr/bin/gh auth status
+ExecStartPre=/bin/sh -c 'test -n "$MERGE_CLOSE_CHECKPOINT_PATH" && test -n "$MERGE_CLOSE_HEARTBEAT_PATH" && test -n "$MERGE_CLOSE_LOCK_PATH" && test -n "$MERGE_CLOSE_POLL_INTERVAL_SECONDS" && test -n "$MERGE_CLOSE_RETRY_ATTEMPTS" && test -n "$MERGE_CLOSE_RETRY_BACKOFF_SECONDS" && test -n "$MERGE_CLOSE_GH_LIMIT" && test -n "$MERGE_CLOSE_GH_BIN" && test -n "$MERGE_CLOSE_SUDOCODE_BIN"'
+ExecStartPre=/bin/sh -c 'mkdir -p "$(dirname "$MERGE_CLOSE_CHECKPOINT_PATH")" "$(dirname "$MERGE_CLOSE_HEARTBEAT_PATH")" "$(dirname "$MERGE_CLOSE_LOCK_PATH")"'
+ExecStartPre=/bin/sh -c 'test -w "$(dirname "$MERGE_CLOSE_CHECKPOINT_PATH")" && test -w "$(dirname "$MERGE_CLOSE_HEARTBEAT_PATH")" && test -w "$(dirname "$MERGE_CLOSE_LOCK_PATH")"'
+
+ExecStart=/bin/sh -c 'if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi; exec "$PY" scripts/sudocode_merge_close_daemon.py --checkpoint "$MERGE_CLOSE_CHECKPOINT_PATH" --heartbeat "$MERGE_CLOSE_HEARTBEAT_PATH" --lock-file "$MERGE_CLOSE_LOCK_PATH" --poll-interval-seconds "$MERGE_CLOSE_POLL_INTERVAL_SECONDS" --retry-attempts "$MERGE_CLOSE_RETRY_ATTEMPTS" --retry-backoff-seconds "$MERGE_CLOSE_RETRY_BACKOFF_SECONDS" --gh-limit "$MERGE_CLOSE_GH_LIMIT" --gh-bin "$MERGE_CLOSE_GH_BIN" --sudocode-bin "$MERGE_CLOSE_SUDOCODE_BIN"'
+
+Restart=always
+RestartSec=10
+SyslogIdentifier=sudocode-merge-close-daemon
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

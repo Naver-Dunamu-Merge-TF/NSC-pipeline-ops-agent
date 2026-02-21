@@ -24,4 +24,4 @@ jobs:
         run: npm install -g sudocode@1.1.21
 
       - name: Apply merge-gated Sudocode close
-        run: python3 scripts/sudocode_close_on_merge.py --event-file "$GITHUB_EVENT_PATH"
+        run: python3 scripts/sudocode_close_on_merge.py --event-file "$GITHUB_EVENT_PATH" --dry-run

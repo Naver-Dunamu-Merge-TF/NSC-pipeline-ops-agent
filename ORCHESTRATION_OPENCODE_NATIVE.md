@@ -19,3 +19,11 @@ This document aligns OpenCode-native runtime policy with `ORCHESTRATION.md`.
 
 - If auto-merge conditions fail, disable auto-merge and attach PR label `needs-review`.
 - This fallback does not close issues; issue status remains `needs_review` until merge-confirmed close.
+
+## Split-Brain Avoidance
+
+- Merge-close daemon is the primary close authority.
+- Runtime unit is user-scope systemd: `ops/systemd/sudocode-merge-close-daemon.service` -> `~/.config/systemd/user/sudocode-merge-close-daemon.service`.
+- Unit env path is `~/.config/sudocode/sudocode-merge-close-daemon.env`.
+- GitHub workflow handling merged PR events stays audit-only dry-run (`.github/workflows/sudocode-close-on-merge.yml` uses `--dry-run`).
+- Never allow daemon and CI workflow to both mutate issue close state in the same window.

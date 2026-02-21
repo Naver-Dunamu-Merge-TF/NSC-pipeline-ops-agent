@@ -2,35 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
-import re
 import subprocess
 import sys
-from typing import Callable, Literal, Mapping
+from typing import Callable, Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from sudocode_orchestrator.merge_closer import (  # noqa: E402
-    MergeClosePayload,
-    MergeCloseResult,
-    apply_merge_close,
+from sudocode_orchestrator.close_on_merge_runtime import (  # noqa: E402
+    CloseSource,
+    DispatchOutcome,
+    build_operator_payload,
+    dispatch_merge_close,
+    preview_from_event,
 )
-
-ISSUE_FIELD_RE = re.compile(r"^Sudocode-Issue:\s*(i-[a-z0-9]+)\s*$", re.MULTILINE)
-CloseSource = Literal["daemon", "workflow", "operator"]
-ApplyFn = Callable[..., MergeCloseResult]
-
-
-@dataclass(frozen=True)
-class DispatchOutcome:
-    invoked: bool
-    reason: str
-    payload: MergeClosePayload | None
-    result: MergeCloseResult | None
 
 
 class SudocodeCliGateway:
@@ -40,13 +29,22 @@ class SudocodeCliGateway:
         working_dir: Path,
         sudocode_bin: str = "sudocode",
         db_path: str | None = None,
+        run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     ) -> None:
         self._working_dir = working_dir
         self._sudocode_bin = sudocode_bin
         self._db_path = db_path
+        self._run_fn = run_fn
+        self._bootstrapped = False
 
     def show_issue(self, issue_id: str) -> object:
-        return self._run_json("issue", "show", issue_id)
+        try:
+            return self._run_json("issue", "show", issue_id)
+        except RuntimeError as exc:
+            if "Issue not found" not in str(exc):
+                raise
+            self._bootstrap_from_jsonl()
+            return self._run_json("issue", "show", issue_id)
 
     def set_issue_status(self, issue_id: str, status: str) -> None:
         self._run_json("issue", "update", issue_id, "--status", status)
@@ -54,13 +52,34 @@ class SudocodeCliGateway:
     def add_feedback(self, issue_id: str, content: str) -> None:
         self._run_json("feedback", "add", issue_id, issue_id, "--content", content)
 
+    def _bootstrap_from_jsonl(self) -> None:
+        if self._bootstrapped:
+            return
+        command = [self._sudocode_bin]
+        if self._db_path:
+            command.extend(["--db", self._db_path])
+        command.extend(["import", "-i", ".sudocode"])
+        completed = self._run_fn(
+            command,
+            cwd=self._working_dir,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            stderr = completed.stderr.strip()
+            stdout = completed.stdout.strip()
+            details = stderr or stdout or "no output"
+            raise RuntimeError(f"sudocode bootstrap import failed: {details}")
+        self._bootstrapped = True
+
     def _run_json(self, *args: str) -> object:
         command = [self._sudocode_bin]
         if self._db_path:
             command.extend(["--db", self._db_path])
         command.append("--json")
         command.extend(args)
-        completed = subprocess.run(
+        completed = self._run_fn(
             command,
             cwd=self._working_dir,
             text=True,
@@ -79,130 +98,6 @@ class SudocodeCliGateway:
             return json.loads(output)
         except json.JSONDecodeError as exc:
             raise RuntimeError("sudocode command returned non-JSON output") from exc
-
-
-def extract_sudocode_issue_id(pr_body: str) -> str:
-    matches = ISSUE_FIELD_RE.findall(pr_body)
-    if len(matches) == 1:
-        return matches[0]
-    if not matches:
-        raise ValueError("missing canonical Sudocode-Issue line in PR body")
-    raise ValueError("multiple Sudocode-Issue lines found in PR body")
-
-
-def build_payload_from_event(
-    event: Mapping[str, object],
-    *,
-    source: CloseSource = "workflow",
-) -> MergeClosePayload:
-    pull_request = _as_mapping(event.get("pull_request"), "pull_request")
-    merged = pull_request.get("merged") is True
-    if not merged:
-        raise ValueError("pull_request.merged must be true")
-
-    body_raw = pull_request.get("body")
-    body = body_raw if isinstance(body_raw, str) else ""
-    issue_id = extract_sudocode_issue_id(body)
-
-    return MergeClosePayload(
-        issue_id=issue_id,
-        pr_url=_required_str(pull_request, "html_url", "pull_request.html_url"),
-        merge_sha=_required_str(
-            pull_request,
-            "merge_commit_sha",
-            "pull_request.merge_commit_sha",
-        ),
-        merged_at=_required_str(pull_request, "merged_at", "pull_request.merged_at"),
-        merged=merged,
-        source=source,
-    )
-
-
-def build_operator_payload(
-    *,
-    issue_id: str,
-    pr_url: str,
-    merge_sha: str,
-    merged_at: str,
-    source: CloseSource = "operator",
-) -> MergeClosePayload:
-    return MergeClosePayload(
-        issue_id=issue_id.strip(),
-        pr_url=pr_url.strip(),
-        merge_sha=merge_sha.strip(),
-        merged_at=merged_at.strip(),
-        merged=True,
-        source=source,
-    )
-
-
-def dispatch_from_event(
-    *,
-    event: Mapping[str, object],
-    gateway: object,
-    source: CloseSource = "workflow",
-    apply_fn: ApplyFn = apply_merge_close,
-) -> DispatchOutcome:
-    try:
-        payload = build_payload_from_event(event, source=source)
-    except ValueError as exc:
-        return DispatchOutcome(
-            invoked=False,
-            reason=str(exc),
-            payload=None,
-            result=None,
-        )
-    return dispatch_merge_close(payload=payload, gateway=gateway, apply_fn=apply_fn)
-
-
-def dispatch_merge_close(
-    *,
-    payload: MergeClosePayload,
-    gateway: object,
-    apply_fn: ApplyFn = apply_merge_close,
-) -> DispatchOutcome:
-    result = apply_fn(gateway=gateway, payload=payload)
-    return DispatchOutcome(
-        invoked=True,
-        reason="merge closer invoked",
-        payload=payload,
-        result=result,
-    )
-
-
-def preview_from_event(
-    *,
-    event: Mapping[str, object],
-    source: CloseSource = "workflow",
-) -> DispatchOutcome:
-    try:
-        payload = build_payload_from_event(event, source=source)
-    except ValueError as exc:
-        return DispatchOutcome(
-            invoked=False,
-            reason=str(exc),
-            payload=None,
-            result=None,
-        )
-    return DispatchOutcome(
-        invoked=False,
-        reason="dry-run: merge closer invocation skipped",
-        payload=payload,
-        result=None,
-    )
-
-
-def _as_mapping(value: object, field_name: str) -> Mapping[str, object]:
-    if not isinstance(value, Mapping):
-        raise ValueError(f"{field_name} must be an object")
-    return value
-
-
-def _required_str(mapping: Mapping[str, object], key: str, field_name: str) -> str:
-    value = mapping.get(key)
-    if isinstance(value, str) and value.strip():
-        return value
-    raise ValueError(f"{field_name} must be a non-empty string")
 
 
 def _load_event_file(path: Path) -> Mapping[str, object]:
@@ -300,6 +195,12 @@ def main(argv: list[str] | None = None) -> int:
         source = "workflow" if mode == "event" else "operator"
     else:
         source = args.source
+
+    if mode == "event" and not args.dry_run:
+        parser.error("--event-file mode requires --dry-run")
+
+    if mode == "operator" and source == "workflow":
+        parser.error("operator mode cannot use --source workflow")
 
     if mode == "event":
         event = _load_event_file(args.event_file)
