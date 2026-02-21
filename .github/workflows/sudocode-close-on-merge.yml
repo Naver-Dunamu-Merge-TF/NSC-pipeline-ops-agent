@@ -21,7 +21,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install sudocode CLI
-        run: npm install -g sudocode@0.1.21
+        run: npm install -g sudocode@1.1.21
 
       - name: Apply merge-gated Sudocode close
         run: python3 scripts/sudocode_close_on_merge.py --event-file "$GITHUB_EVENT_PATH"
