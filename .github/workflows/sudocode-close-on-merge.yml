@@ -1,0 +1,27 @@
+name: Sudocode Close On Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  close-on-merge:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install sudocode CLI
+        run: npm install -g sudocode@1.1.21
+
+      - name: Apply merge-gated Sudocode close
+        run: python3 scripts/sudocode_close_on_merge.py --event-file "$GITHUB_EVENT_PATH" --dry-run

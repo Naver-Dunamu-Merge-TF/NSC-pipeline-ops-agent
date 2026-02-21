@@ -9,7 +9,8 @@ It covers local validation, runtime wiring, operational checks, and incident han
 
 - Orchestrator components live in `src/sudocode_orchestrator/`.
 - `python -m sudocode_orchestrator.runner --dry-run` is a local simulation entrypoint.
-- There is no packaged long-running production daemon command yet in `scripts/`.
+- There is no packaged long-running orchestrator service command yet in `scripts/`.
+- Merge-confirmed close handling is operated by a separate user-scope systemd unit: `ops/systemd/sudocode-merge-close-daemon.service`.
 - Worker parallelism default is `4` in `WorkerPoolDispatcher`.
 
 Relevant modules:
@@ -31,7 +32,7 @@ Relevant modules:
 Run:
 
 ```bash
-PYTHONPATH=src python -m sudocode_orchestrator.runner --dry-run
+PYTHONPATH=src .venv/bin/python -m sudocode_orchestrator.runner --dry-run
 ```
 
 Expected result:
@@ -47,7 +48,7 @@ Example:
   "last_event_type": "SESSION_DONE",
   "processed_issue": "i-dry1",
   "snapshot_count": 5,
-  "status_updates": [["i-dry1", "in_progress"], ["i-dry1", "in_progress"], ["i-dry1", "closed"]]
+  "status_updates": [["i-dry1", "in_progress"], ["i-dry1", "in_progress"], ["i-dry1", "needs_review"]]
 }
 ```
 
@@ -132,10 +133,17 @@ Primary event types:
 
 Expected terminal outcomes:
 
-- Success: `SESSION_DONE` and issue status set to `closed`
+- Success: `SESSION_DONE` and issue status set to `needs_review` (close is merge-gated)
 - Verify failure: `VERIFY_FAILED` and issue remains not closed
-- Overflow: `[FIX]` issue created, original issue linked and closed
+- Overflow: `[FIX]` issue created, original issue linked and moved to `needs_review`
 - Runtime exception after claim: `SESSION_ERROR` and issue reopened (`open`) by runner safeguard
+
+Policy note:
+
+- All issues must pass `needs_review` before `closed`.
+- `needs_review` (issue status) is not the same as `needs-review` (PR label used for manual-review fallback signaling).
+- Split-brain guardrail: merge-close daemon is the primary close authority; `.github/workflows/sudocode-close-on-merge.yml` remains audit-only (`--dry-run`).
+- Before broad rollout, run one canary merge-close prove-out following `docs/runbooks/merge-close-daemon-wsl.md` and record journal + issue evidence.
 
 ## Operational Checks
 
@@ -146,7 +154,7 @@ Expected terminal outcomes:
 3. Confirm unit tests are green:
 
 ```bash
-python -m pytest tests/unit/ -x
+.venv/bin/python -m pytest tests/unit/ -x
 ```
 
 ### During operation
@@ -208,6 +216,7 @@ Attach:
 ## Related Docs
 
 - `ORCHESTRATION.md`
+- `docs/runbooks/merge-close-daemon-wsl.md`
 - `AGENTS.md`
 - `docs/prompts/prompt_template.md`
 - `docs/runbooks/oncall-checklist.md`

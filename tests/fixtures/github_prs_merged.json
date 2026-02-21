@@ -1,0 +1,20 @@
+[
+  {
+    "number": 101,
+    "url": "https://github.com/acme/repo/pull/101",
+    "mergedAt": "2026-02-22T10:00:00Z",
+    "body": "Title\nSudocode-Issue: i-aa11\n",
+    "mergeCommit": {
+      "oid": "sha-a"
+    }
+  },
+  {
+    "number": 102,
+    "url": "https://github.com/acme/repo/pull/102",
+    "mergedAt": "2026-02-22T10:05:00Z",
+    "body": "Title\nSudocode-Issue: i-bb22\n",
+    "mergeCommit": {
+      "oid": "sha-b"
+    }
+  }
+]
