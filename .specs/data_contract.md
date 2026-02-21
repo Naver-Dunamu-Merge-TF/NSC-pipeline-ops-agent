@@ -1,6 +1,6 @@
 # Data Contract (Agent Input SSOT)
 
-DEV-001 기준으로, 에이전트(`detect.py`, `collect.py`)가 실제로 읽는 컬럼만 SSOT로 고정한다.
+DEV-001 기준으로, 에이전트(`detect.py`, `collect.py`)가 실제로 읽는 컬럼만 SSOT로 고정한다. 에이전트 입력 컬럼의 SSOT는 `data_contract.md`다.
 
 ## `gold.pipeline_state`
 

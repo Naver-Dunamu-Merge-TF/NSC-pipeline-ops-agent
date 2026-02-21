@@ -254,7 +254,7 @@ class AgentState(TypedDict):
 
 detect.py / collect.py가 실제로 읽는 컬럼만 발췌한다.
 
-SSOT는 [.specs/data_contract.md](./data_contract.md)입니다.
+에이전트 입력 컬럼 SSOT는 [`data_contract.md`](./data_contract.md)다.
 
 #### `gold.pipeline_state` — detect.py, collect.py
 
