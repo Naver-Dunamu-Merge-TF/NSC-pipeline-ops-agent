@@ -94,7 +94,7 @@ Issue          실행 단위 배포           Sudocode 관리  높음
 - 1 Task = 1 Issue = 1 PR
 - Task는 **"~하면 ~된다"** 한 문장으로 완료 상태를 설명할 수 있는 크기
 - 완료 조건(DoD)에 **검증 항목을 복수로** 나열하고, 전부 통과해야 Task 완료
-- 내부 분해(어떤 파일을 어떤 순서로 수정하는지)는 에이전트(Sisyphus)에게 위임
+- 내부 분해(어떤 파일을 어떤 순서로 수정하는지)는 작업 에이전트에게 위임
 
 **적절한 크기의 판단 기준:**
 
@@ -187,17 +187,21 @@ GitHub Issues를 사용하지 않는다. 대신 **Sudocode**가 Issue(에픽/태
 
 ### 도구 및 환경
 
-- **도구**: Oh My OpenCode + GPT (Pro 계정)
+- **도구**: superpowers 기반 스킬 중심 코딩 에이전트
 - **실행 환경**: 로컬 터미널
-- **실행 모드**: 위임 모드
+- **실행 모드**: 스킬 체인 오케스트레이션
 
-**위임 모드 (`/ulw`) 상세:**
-- Sisyphus 에이전트가 Task를 내부적으로 서브태스크로 분해 + 서브에이전트에 병렬 위임
-- ralph-loop의 **reset 전략**: 매 반복마다 새 세션 → 컨텍스트 초과 없이 작업 가능
+**표준 스킬 체인 상세:**
+- `brainstorming`: 요구사항 정리, 가정 명시, 대안 비교
+- `writing-plans`: 실행 순서와 검증 커맨드를 문서로 고정
+- `test-driven-development` 또는 `systematic-debugging`: 구현/수정 루프 수행
+- `verification-before-completion`: 완료 주장 전 검증 결과 확인
+- `requesting-code-review`: 로컬 리뷰 수행 및 리스크 확인
+- `create-pr` / `create-adr`: 산출물 생성 및 미결사항 기록
 - **최대 5회 반복** 후 자동 종료. 5회 내 미완료 시 현재 상태를 Draft PR로 제출하고 사람에게 넘김
 - 안전장치:
   - `AGENTS.md`에 "동일 테스트 5회 연속 실패 시 중단, 미결 항목 기록 후 Draft PR 생성" 규칙 명시
-  - `/stop-continuation`으로 수동 중단 가능
+  - 런타임 수동 중단 명령으로 언제든 중단 가능
 
 ### 흐름
 
@@ -308,7 +312,7 @@ Merge → Issue 자동 close
 
 **AI 리뷰 승인의 기준 (Shift-Left 로컬 리뷰어):**
 - 클라우드 API(GitHub Actions)에서 무거운 LLM을 호출하여 리뷰 비용을 발생시키지 않는다.
-- 대신, 코드를 작성한 에이전트(Sisyphus)가 PR을 올리기 **직전에 로컬 환경에서 리뷰 에이전트(Momus)를 호출**하여 코드 품질과 Spec 준수 여부를 무료로 상호 검증한다.
+- 대신, 코드를 작성한 작업 에이전트가 PR을 올리기 **직전에 로컬 환경에서 리뷰 에이전트(Momus)를 호출**하여 코드 품질과 Spec 준수 여부를 무료로 상호 검증한다.
 - Momus가 통과시키면, PR 본문에 `Reviewed-by: Momus (Local)` 서명을 포함하여 PR을 생성한다.
 - GitHub Actions는 LLM을 돌리지 않고, 1) CI(테스트) 통과 여부, 2) PR 본문의 서명 존재 여부, 3) `git diff`상 위험 파일 변경 여부만을 **기계적(Rule-based)으로 검사**한다.
 - 모든 조건이 맞으면 GitHub이 제공하는 기본 토큰(`GITHUB_TOKEN`)을 사용해 `gh pr review --approve` 도장을 찍고 즉시 자동 머지한다.
@@ -406,20 +410,20 @@ PR body 구조:
 
 ## 세션 요약
 <!-- 에이전트가 자동 기재. GitHub에 남기지 않으면 사라지는 세션 수준 정보. -->
-- ralph-loop 반복 횟수: N회
+- 실행 루프 반복 횟수: N회
 - L0/L1 실패 항목: (있으면 기재, 없으면 생략)
 - Draft PR 여부: 아니오 / 예 (사유: ...)
 - 사람 개입: 없음 / (있으면 어떤 판단이 필요했는지)
 
 ## 로컬 리뷰 서명
-<!-- 에이전트 간(Sisyphus → Momus) 사전 리뷰 통과 증빙 -->
+<!-- 에이전트 간(작업 에이전트 → Momus) 사전 리뷰 통과 증빙 -->
 - Reviewed-by: Momus (Local)
 ```
 
 **2단계 — PR 자동 리뷰 (Shift-Left: 로컬 에이전트 사전 리뷰)**
 
-- 클라우드 API 호출 비용($0)을 절감하기 위해, OpenAI Codex(클라우드) 대신 **로컬 환경(Oh My OpenCode)의 리뷰 에이전트(Momus 등)**가 코드를 사전에 검증한다.
-- 작업 에이전트(Sisyphus)가 로컬에서 코드 수정을 완료하면, PR 생성 직전에 리뷰 에이전트를 호출해 `AGENTS.md`의 `## Review guidelines` 기준으로 코드를 검사받는다.
+- 클라우드 API 호출 비용을 줄이기 위해, 클라우드 LLM 리뷰 대신 **로컬 환경의 superpowers 기반 리뷰 에이전트(Momus 등)**가 코드를 사전에 검증한다.
+- 작업 에이전트가 로컬에서 코드 수정을 완료하면, PR 생성 직전에 리뷰 에이전트를 호출해 `AGENTS.md`의 `## Review guidelines` 기준으로 코드를 검사받는다.
   - `.specs/` 문서와의 정합성 확인
   - 프로젝트 코딩 컨벤션 준수 여부
   - 보안/시크릿 노출 여부
@@ -428,7 +432,7 @@ PR body 구조:
 
 **3단계 — 사람 리뷰 (최종 판단)**
 
-- 에이전트의 문서 영향 보고와 Codex 리뷰를 참고하여 최종 판단.
+- 에이전트의 문서 영향 보고와 로컬 리뷰 결과를 참고하여 최종 판단.
 - drift 감지 CI가 코드 vs Spec 스키마의 기계적 불일치를 추가로 잡는다.
 
 ### 보조 수단
@@ -494,11 +498,11 @@ PR #42에서 threshold 기본값을 0.05로 설정했으나 Spec에 근거 없�
 
 ### 생성 원칙: LLM 스킬 통합 (모델 불문)
 
-워크플로에서 AI가 생성하는 구조화된 산출물(PR, ADR)은 **LLM 스킬**을 통해 작성한다. 각 산출물마다 전용 스킬(`skills/pr.md`, `skills/adr.md`)을 프롬프트 템플릿으로 정의하여 일관된 인터페이스로 관리한다.
+워크플로에서 AI가 생성하는 구조화된 산출물(PR, ADR)은 **LLM 스킬**을 통해 작성한다. 각 산출물마다 전용 스킬(`skills/create-pr/SKILL.md`, `skills/create-adr/SKILL.md`)을 프롬프트 템플릿으로 정의하여 일관된 인터페이스로 관리한다.
 
 - Issue는 Sudocode가 관리하므로 별도 LLM 스킬이 불필요하다. 로드맵 → Sudocode 변환은 데몬에 의해 지속적으로 동기화된다.
 - PR과 ADR은 자연어 해석과 구조화된 포맷 생성이 필요하므로, LLM 스킬을 유지한다.
-- LLM 스킬은 프롬프트 템플릿이며, 실제 호출 모델은 Oh My OpenCode에서 선택(GPT/Claude 등)한다. 특정 모델에 종속되지 않는다.
+- LLM 스킬은 프롬프트 템플릿이며, 실제 호출 모델은 실행 환경에서 선택(GPT/Claude 등)한다. 특정 모델에 종속되지 않는다.
 
 ### 산출물 목록
 
@@ -642,13 +646,13 @@ backlog
 
 ## 세션 요약
 <!-- 에이전트가 자동 기재. GitHub에 남기지 않으면 사라지는 세션 수준 정보. -->
-- ralph-loop 반복 횟수: N회
+- 실행 루프 반복 횟수: N회
 - L0/L1 실패 항목: (있으면 기재, 없으면 생략)
 - Draft PR 여부: 아니오 / 예 (사유: ...)
 - 사람 개입: 없음 / (있으면 어떤 판단이 필요했는지)
 
 ## 로컬 리뷰 서명
-<!-- 에이전트 간(Sisyphus → Momus) 사전 리뷰 통과 증빙 -->
+<!-- 에이전트 간(작업 에이전트 → Momus) 사전 리뷰 통과 증빙 -->
 - Reviewed-by: Momus (Local)
 ```
 
@@ -747,7 +751,7 @@ AI 에이전트는 시크릿 노출에 대한 감각이 없으므로 다중 방�
 │  Sudocode가 Ready Issue 감지 → 에이전트 자동 스폰 (세션 시작)         │
 │    │                                                            │
 │    ▼                                                            │
-│  에이전트 팀 (Oh My OpenCode + GPT) — 단일 세션                   │
+│  에이전트 팀 (superpowers skill-based agent) — 단일 세션         │
 │    │                                                            │
 │    ├─ 1. Sudocode Issue 및 연결된 Spec을 참조하여 작업 컨텍스트 파악
 │    │                                                            │
@@ -815,8 +819,8 @@ AI 에이전트는 시크릿 노출에 대한 감각이 없으므로 다중 방�
 | **Sudocode** (`sudocode server`) | Issue DAG 관리, 에이전트 디스패치(worktree + 스폰), 실시간 모니터링, Spec ↔ Issue 링크 |
 | GitHub Actions | CI 검증, `approval:auto` 판단 및 `APPROVE` 도장(기계적 검사), 문서 drift 감지, gitleaks 스캔 |
 | `gh` CLI | PR 생성/조작 |
-| Oh My OpenCode + GPT | 작업 에이전트(Sisyphus) 실행 및 로컬 사전 리뷰(Momus) 수행 |
-| LLM 스킬 (`skills/*.md`) | PR body, ADR 초안 생성 등 보조 산출물 (모델 불문, Oh My OpenCode에서 선택) |
+| superpowers 기반 코딩 에이전트 | 작업 에이전트 실행, 스킬 체인 오케스트레이션, 로컬 사전 리뷰(Momus) 수행 |
+| LLM 스킬 (`skills/create-pr/SKILL.md`, `skills/create-adr/SKILL.md`) | PR body, ADR 초안 생성 등 보조 산출물 템플릿 제공 (모델 불문) |
 | gitleaks | Pre-commit hook + CI 시크릿 스캔 |
 | `AGENTS.md` | 프로젝트 컨벤션, 리뷰 가이드라인, 보안 규칙 |
 
