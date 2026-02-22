@@ -6,11 +6,31 @@
       "command": [
         "sudocode-mcp"
       ]
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      },
+      "enabled": true
+    },
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless"
+      ],
+      "enabled": true
     }
   },
   "skills": {
     "paths": [
-      "./skills"
+      "./skills",
+      "./.skills",
+      "/home/salee/.agents/skills"
     ]
   }
 }

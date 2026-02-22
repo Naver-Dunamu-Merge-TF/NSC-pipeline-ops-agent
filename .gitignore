@@ -214,3 +214,6 @@ __marimo__/
 
 # Local stray skill artifact
 skills/supabase-postgres-best-practices
+
+# Local git worktrees
+.worktrees/
