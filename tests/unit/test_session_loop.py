@@ -56,7 +56,9 @@ def _validated_snapshots(gateway: FakeGateway) -> list[dict[str, object]]:
     return [validate_snapshot(json.loads(content)) for _, content in gateway.feedback]
 
 
-def test_overflow_on_third_spec_failure_closes_original_and_creates_fix() -> None:
+def test_overflow_on_third_spec_failure_moves_original_to_needs_review_and_creates_fix() -> (
+    None
+):
     gateway = FakeGateway([], [], [], [])
     now = datetime(2026, 2, 21, 9, 0, tzinfo=timezone.utc)
     quality_calls = 0
@@ -96,7 +98,8 @@ def test_overflow_on_third_spec_failure_closes_original_and_creates_fix() -> Non
     )
 
     assert outcome.final_state == "OVERFLOW"
-    assert gateway.status_updates[-1] == ("i-abc1", "closed")
+    assert gateway.status_updates[-1] == ("i-abc1", "needs_review")
+    assert ("i-abc1", "closed") not in gateway.status_updates
     assert quality_calls == 0
     assert gateway.created_fix_issues
     assert gateway.created_fix_issues[0][0] == "[FIX] DEV-001: Lock SSOT schema"
@@ -159,7 +162,8 @@ def test_quality_runs_only_after_spec_pass() -> None:
     assert quality_calls == 1
     assert impl_calls == 2
     assert outcome.final_state == "DONE"
-    assert gateway.status_updates[-1] == ("i-abc1", "closed")
+    assert gateway.status_updates[-1] == ("i-abc1", "needs_review")
+    assert ("i-abc1", "closed") not in gateway.status_updates
     snapshots = _validated_snapshots(gateway)
     event_types = [snapshot["event_type"] for snapshot in snapshots]
     assert event_types == [
@@ -201,6 +205,7 @@ def test_done_requires_fresh_verify_exit_code_zero() -> None:
     )
 
     assert outcome.final_state == "VERIFY_FAILED"
+    assert ("i-abc1", "needs_review") not in gateway.status_updates
     assert ("i-abc1", "closed") not in gateway.status_updates
     snapshots = _validated_snapshots(gateway)
     assert snapshots[-1]["event_type"] == "VERIFY_FAILED"

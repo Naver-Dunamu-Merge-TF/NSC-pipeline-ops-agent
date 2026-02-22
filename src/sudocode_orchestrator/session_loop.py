@@ -171,7 +171,7 @@ class SingleSessionOrchestrator:
                 )
                 return SessionOutcome(final_state="VERIFY_FAILED", fix_issue_id=None)
 
-            self.gateway.set_issue_status(issue.issue_id, "closed")
+            self.gateway.set_issue_status(issue.issue_id, "needs_review")
             self._snapshot(
                 issue=issue,
                 session_id=resolved_session_id,
@@ -232,7 +232,7 @@ class SingleSessionOrchestrator:
         )
         fix_issue_id = self.gateway.create_fix_issue(fix_title, fix_body)
         self.gateway.link_issues(issue.issue_id, fix_issue_id, "related")
-        self.gateway.set_issue_status(issue.issue_id, "closed")
+        self.gateway.set_issue_status(issue.issue_id, "needs_review")
         self._snapshot(
             issue=issue,
             session_id=session_id,

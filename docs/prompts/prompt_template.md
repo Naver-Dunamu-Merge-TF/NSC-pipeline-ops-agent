@@ -1,4 +1,4 @@
-## VK Task Execution Prompt
+## Sudocode Task Execution Prompt
 
 You are executing a dispatcher-generated task.
 
@@ -46,12 +46,14 @@ Treat the injected checklist below as the source of truth and review it line by 
 - If a reviewer fails at its final allowed attempt, stop normal loop and trigger overflow handling.
 
 ### Overflow Handling (Retry Limit Exceeded)
-If SPEC_REVIEW fails at attempt 3/3 or QUALITY_REVIEW fails at attempt 2/2, create and start a FIX task via:
-- POST /api/task-attempts/create-and-start
+If SPEC_REVIEW fails at attempt 3/3 or QUALITY_REVIEW fails at attempt 2/2, stop the normal loop and report OVERFLOW to the controller. The controller handles overflow through Sudocode MCP by:
+- creating a dedicated FIX issue
+- linking original issue -> FIX issue (`related`)
+- moving the original issue to `needs_review` after FIX issue creation (final `closed` remains merge-confirmed close path responsibility)
 
-FIX prompt requirements:
+FIX issue requirements:
 - title: [FIX] {task_id}: {title}
-- body must include all of: original task id, overflow reason, failed acceptance items, latest verification evidence/output, full original DoD.
+- body must include all of: original issue id, overflow reason, failed acceptance items, latest verification evidence/output, full original DoD.
 
 ### Verification Before Completion
 - Do not mark DONE without fresh verification evidence from the current attempt.
