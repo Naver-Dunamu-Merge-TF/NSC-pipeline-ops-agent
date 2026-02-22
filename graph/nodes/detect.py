@@ -9,5 +9,15 @@ WRITE_FIELDS = ("pipeline_states", "detected_issues")
 
 
 def run(state: AgentState) -> dict[str, Any]:
-    _ = state
-    raise NotImplementedError("detect node is not implemented in this skeleton.")
+    detected_issues = state.get("detected_issues")
+    if detected_issues is None:
+        detected_issues = []
+
+    pipeline_states = state.get("pipeline_states")
+    if pipeline_states is None:
+        pipeline_states = {}
+
+    return {
+        "pipeline_states": pipeline_states,
+        "detected_issues": detected_issues,
+    }
