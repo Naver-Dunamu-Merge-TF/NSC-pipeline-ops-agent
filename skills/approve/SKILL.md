@@ -45,3 +45,5 @@ Once the ID is known, use `sudocode-mcp` to set its status to `closed`.
 ## Step 5: Report
 
 Summarize: commit made, branch merged and deleted, worktree removed (if applicable), issue closed.
+
+All user-facing messages must be written in Korean.
