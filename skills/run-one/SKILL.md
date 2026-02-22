@@ -33,6 +33,7 @@ Purpose: Select one ready issue and drive it from `open` to `needs_review` with 
    - Re-run verification for changed scope.
    - Repeat until blocking findings are cleared.
 7. On success, set issue status to `needs_review`.
+8. Self-retrospective: verify each Task Order step was executed as written. If any was skipped or deviated from, note it to the user.
 
 ## Non-Negotiable Rules
 
@@ -40,3 +41,4 @@ Purpose: Select one ready issue and drive it from `open` to `needs_review` with 
 - Keep changes strictly inside the selected issue scope.
 - ALL IMPLEMENTATION, REVIEW, AND FIXES MUST BE EXECUTED THROUGH SUBAGENTS.
 - `needs_review` is an issue status (different from PR label `needs-review`).
+- All user-facing messages must be written in Korean.
