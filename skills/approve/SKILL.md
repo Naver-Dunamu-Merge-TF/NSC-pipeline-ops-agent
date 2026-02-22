@@ -7,8 +7,6 @@ description: "Use when the user types /approve to fast-path approve completed wo
 
 Execute all steps below immediately and in sequence. Non-interactive — do not pause for confirmation between steps.
 
-Say "approve 시작합니다." then proceed without waiting.
-
 ## Step 1: Detect state
 
 Get current branch (BRANCH), main repo path (MAIN_REPO = first path in `git worktree list`), and current directory (CWD).
