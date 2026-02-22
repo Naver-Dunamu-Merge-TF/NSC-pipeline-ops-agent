@@ -1,4 +1,4 @@
-# ADR-0002: place-ai-agent-skeleton-at-repo-root
+# ADR-0004: place-ai-agent-skeleton-at-repo-root
 
 ## Status
 

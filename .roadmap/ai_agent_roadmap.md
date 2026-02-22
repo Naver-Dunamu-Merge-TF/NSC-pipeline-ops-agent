@@ -272,13 +272,13 @@ manual
 
 ##### status
 
-backlog
+in_progress
 
 ##### DoD
 
-* [ ] `config/databricks_jobs.yaml`(또는 동등)에 파이프라인/액션 → Databricks Job ID 매핑이 정의돼 있다(환경별 값은 추후 주입 가능)
-* [ ] 설정 로딩/검증 테스트(숫자 타입, 중복 키, 누락)가 존재한다
-* [ ] 문서(`.specs/runtime_config.md`)에 “어디에 Job ID를 넣는지”가 명시돼 있다
+* [x] `config/databricks_jobs.yaml`(또는 동등)에 파이프라인/액션 → Databricks Job ID 매핑이 정의돼 있다(환경별 값은 추후 주입 가능)
+* [x] 설정 로딩/검증 테스트(숫자 타입, 중복 키, 누락)가 존재한다
+* [x] 문서(`.specs/runtime_config.md`)에 “어디에 Job ID를 넣는지”가 명시돼 있다
 * [ ] 기존 CI가 모두 통과한다
 
 ### Epic: [EPIC-35] G1 게이트 통합 리뷰를 수행한다
@@ -347,14 +347,15 @@ DEV-001, DEV-002
 
 ##### status
 
-backlog
+in_progress
 
 ##### DoD
 
-* [ ] §4.2 구조대로 `graph/`, `tools/`, `utils/`, `llmops/`, `prompts/`, `tests/` 기본 뼈대가 생성돼 있다
-* [ ] `graph/state.py`에 `AgentState`, `ActionPlan`, `TriageReport(Pydantic)`가 기획서 스키마(§2.2, §2.4)와 동일하게 정의돼 있다
-* [ ] `graph/nodes/*` 파일이 생성돼 있고, 각 노드는 “읽기/쓰기 필드 원칙(§2.2.1)”을 어기지 않는 시그니처/스텁을 가진다
-* [ ] `import`/패키지 로딩이 깨지지 않는다(기본 import 테스트 존재)
+* [x] §4.2 구조대로 `graph/`, `tools/`, `utils/`, `llmops/`, `prompts/`, `tests/` 기본 뼈대가 생성돼 있다
+* [x] `graph/state.py`에 `AgentState`, `ActionPlan`, `TriageReport(Pydantic)`가 기획서 스키마(§2.2, §2.4)와 동일하게 정의돼 있다
+* [x] `graph/nodes/*` 파일이 생성돼 있고, 각 노드는 “읽기/쓰기 필드 원칙(§2.2.1)”을 어기지 않는 시그니처/스텁을 가진다
+* [x] `import`/패키지 로딩이 깨지지 않는다(기본 import 테스트 존재)
+* [x] 루트 배치는 ADR-0004(`docs/adr/0004-place-ai-agent-skeleton-at-repo-root.md`)의 임시 스코프 결정이며, 런타임 패키징 표준 확정은 후속 결정으로 남겨둔다
 * [ ] 기존 CI가 모두 통과한다
 
 #### DEV-010: 모든 노드/엣지가 연결된 LangGraph가 실행되면 END까지 상태가 흐른다

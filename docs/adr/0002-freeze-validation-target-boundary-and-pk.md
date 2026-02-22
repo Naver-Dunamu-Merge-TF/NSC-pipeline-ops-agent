@@ -1,4 +1,4 @@
-# ADR-0001: freeze-validation-target-boundary-and-pk
+# ADR-0002: freeze-validation-target-boundary-and-pk
 
 ## Status
 
