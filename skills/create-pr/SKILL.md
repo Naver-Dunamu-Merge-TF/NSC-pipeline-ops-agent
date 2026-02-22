@@ -23,6 +23,8 @@ Before opening a PR, confirm all of the following:
   > `tests/integration/`가 아직 없는 경우 해당 경로는 생략 가능 (`tests/unit/` 단독 실행).
 - [ ] **L3 (verify:L3 issues only)** — Check the Sudocode Issue `tags` field. If `verify:L3` is set, confirm that the Databricks Dev E2E run (idempotency verified) is expected to pass before creating the PR. If not yet runnable locally, note it in **Unresolved**.
 - [ ] **gitleaks** — `gitleaks protect --staged` returns no findings
+- [ ] **ADR link gate (decision-bearing only)** — If ADR trigger criteria in §3 apply, confirm an ADR file exists in `docs/adr/` and the ADR link is present in **문서 영향**.
+- [ ] **Follow-up issue link gate (decision-bearing only)** — If ADR trigger criteria in §3 apply, confirm a follow-up Sudocode Issue exists and its ID/link is present in **문서 영향**.
 
 Do not proceed if any check fails. Resolve failures first, and use a **Draft PR** only when unresolved blockers remain (see Section 4).
 
@@ -58,6 +60,8 @@ Sudocode Issue: <issue-id>
 
 ADR: <!-- 작성했으면 링크, 없으면 "없음" -->
 
+Follow-up Issue: <!-- 작성했으면 Sudocode Issue ID/링크, 없으면 "없음" -->
+
 ## 미결/모호한 점
 
 <!-- Spec에 근거가 없거나 에이전트가 임의로 판단한 부분을 기재한다.
@@ -91,6 +95,7 @@ Write `docs/adr/NNNN-title.md` (see `skills/create-adr/SKILL.md` for full author
 - You chose one approach over multiple valid alternatives and the tradeoff needs to be recorded
 - The change introduces a breaking interface modification or backwards-incompatible behavior
 - The decision has direct security or performance implications
+- ADR가 필요한 "in-session decision"이 있었다면, 해당 결정의 후속 추적을 위한 Follow-up Sudocode Issue도 반드시 생성하고 **문서 영향**에 ADR과 함께 링크한다.
 
 When in doubt, write the ADR. It is cheaper to document than to re-litigate later.
 
@@ -146,4 +151,5 @@ sudocode.update_issue("<issue-id>", {
 | No secrets | Never include `.env` files or real credentials. Use `PLACEHOLDER` in examples |
 | 로컬 리뷰 서명 필수 | PR body must contain `Reviewed-by: review-subagent (local)` — Auto-Merge will reject without it |
 | `.specs/` or `docs/adr/` changes | Auto-Merge is disabled automatically for these paths; flag for manual approval in PR body |
+| Decision-bearing doc gate | No ADR-only / no issue-only for decision-bearing changes — both ADR and Follow-up Issue links are required |
 | Scope | 1 Task = 1 Issue = 1 PR. Do not bundle unrelated changes |

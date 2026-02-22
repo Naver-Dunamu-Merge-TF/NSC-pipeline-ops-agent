@@ -29,17 +29,14 @@ When in doubt, write the ADR. It is cheaper to document than to re-litigate late
 
 ## 2. ADR Number Assignment
 
-Scan `docs/adr/` for existing `NNNN-*.md` files, extract the highest number, and increment by 1. Start at `0001` if none exist.
+Run this Bash snippet to calculate the next ADR number.
 
 ```bash
-LAST=$(ls docs/adr/*.md 2>/dev/null \
-  | xargs -I{} basename {} .md \
-  | grep -oP '^\d+' \
-  | sort -n \
-  | tail -1)
-NEXT=$(printf '%04d' $(( ${LAST:-0} + 1 )))
-# → NEXT is the zero-padded next ADR number (e.g., "0003")
-# If no ADRs exist, LAST is empty and NEXT becomes "0001"
+LAST=$(ls docs/adr/[0-9][0-9][0-9][0-9]-*.md 2>/dev/null | sort | tail -1)
+LAST=${LAST##*/}
+LAST=${LAST%%-*}
+NEXT=$(printf '%04d' $((10#${LAST:-0} + 1)))
+# NEXT is the zero-padded next ADR number (e.g., "0005")
 ```
 
 ---
@@ -58,13 +55,19 @@ docs/adr/NNNN-<kebab-case-title>.md
 ## 4. ADR Template
 
 Copy the template below and fill in each section **in Korean**.
+Keep the header label exactly as `Created At` (English only).
+`Created At` must use Korean format: `YYYY-MM-DD HH:mm KST`.
 
 ```markdown
 # ADR-NNNN: <title>
 
+## Created At
+
+2026-02-23 14:30 KST
+
 ## Status
 
-Proposed / Accepted / Deprecated
+PendingReview
 
 ## Context
 
@@ -93,6 +96,7 @@ Proposed / Accepted / Deprecated
 
 | Section | Key Principle |
 |---------|---------------|
+| **Created At** | Keep the section header in English (`Created At`). Use Korean datetime format `YYYY-MM-DD HH:mm KST`. Keep it as the first section below the ADR title and set it to the initial authoring timestamp. |
 | **Context** | Focus on "why this decision was needed." Reference the specific `.specs/` constraint or domain rule that prompted it. |
 | **Decision** | One declarative sentence only. If you cannot state it in one sentence, the decision is not ready to be recorded yet. |
 | **Rationale** | Always list rejected alternatives with reasons. This is the highest-value section — it prevents future re-litigation. |
@@ -103,28 +107,16 @@ Proposed / Accepted / Deprecated
 
 After writing the ADR file:
 
-- [ ] Link the ADR file path in the PR body `## Document Impact` section
-- [ ] Note the affected `.specs/` files (if any) in the same section
-- [ ] `approval:auto` is **disabled** for this PR — `docs/adr/` changes block Auto-Merge automatically (see `AGENTS.md`)
-- [ ] If the decision requires a `.specs/` update, create a dedicated spec-update Issue via MCP as the **primary path** (current runtime has no `.roadmap/` -> Sudocode auto-sync daemon). Optionally mirror the same task in the active Roadmap Markdown (for example, `.roadmap/ai_agent_roadmap.md`) for planning visibility:
-  ```
-  created = sudocode.upsert_issue({
-    "title": "spec-update: <brief description>",
-    "description": "Update .specs/<file>.md to reflect ADR NNNN decision.",
-    "tags": ["spec-update"],
-    "status": "open"
-  })
-
-  sudocode.link({
-    "from_id": "<current-issue-id>",
-    "to_id": created.issue_id,
-    "type": "blocks"
-  })
-  ```
+- [ ] Record the ADR file path in the current issue handoff/update note
+- [ ] Note the affected `.specs/` files (if any) in the same handoff/update note
+- [ ] Confirm `## Created At` exists and follows `YYYY-MM-DD HH:mm KST`
+- [ ] Create a follow-up Sudocode Issue via MCP and link it from the current issue (mandatory for every ADR)
+- [ ] Run ADR review using a subagent
+- [ ] If ADR review returns blocking findings, fix the ADR and run re-review until blocking findings are cleared
 
 ---
 
-## 7. gh Command
+## 7. ADR Review Timing
 
-Include the ADR in the same PR as the implementation change that triggered it.
-No separate PR is needed for a new ADR unless it affects `.specs/` (which requires a dedicated spec-update task).
+- Run ADR review immediately after ADR creation and follow-up issue linking.
+- Complete ADR fixes before moving the current issue to `needs_review`.
