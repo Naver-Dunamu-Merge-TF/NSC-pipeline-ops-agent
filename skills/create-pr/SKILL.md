@@ -4,7 +4,7 @@ description: >
   PR creation workflow for AI agents. Use when you have finished a Sudocode task
   and are ready to open a pull request via gh pr create. Covers pre-flight checks,
   PR body authoring (Change Summary, Document Impact, Unresolved, Session Notes,
-  Momus review signature), ADR trigger criteria, and gh command template.
+  local review signature), ADR trigger criteria, and gh command template.
 ---
 
 # PR Creation Skill
@@ -13,15 +13,18 @@ description: >
 
 Before opening a PR, confirm all of the following:
 
-- [ ] **L0** — No syntax errors: `python -m py_compile <changed files>`
-- [ ] **L1** — Unit tests pass: `.venv/bin/python -m pytest tests/unit/ -x`
-- [ ] **L2 local sanity** — Integration test + coverage sanity run before pushing: `.venv/bin/python -m pytest tests/unit/ tests/integration/ --cov=src --cov-fail-under=80`
+> **L0/L1은 오케스트레이션이 보장한다.** 실행 루프(spec review → code quality review → verification freshness 게이트)를
+> 통과한 세션에서 생성된 PR이므로 여기서 재실행하지 않는다.
+> 로컬 리뷰 서브에이전트 실행도 오케스트레이션의 code quality review 단계 책임이며,
+> create-pr은 그 결과물인 `Reviewed-by:` 서명이 PR body에 포함됐는지만 확인한다.
+
+- [ ] **L2 local sanity** — CI 실패를 미리 방지하기 위한 로컬 sanity run: `.venv/bin/python -m pytest tests/unit/ tests/integration/ --cov=src --cov-fail-under=80`
   > L2/L3 are CI gates that run on GitHub Actions after PR creation. This local run is a sanity check to avoid a predictably failing CI, not a replacement for the CI gate.
+  > `tests/integration/`가 아직 없는 경우 해당 경로는 생략 가능 (`tests/unit/` 단독 실행).
 - [ ] **L3 (verify:L3 issues only)** — Check the Sudocode Issue `tags` field. If `verify:L3` is set, confirm that the Databricks Dev E2E run (idempotency verified) is expected to pass before creating the PR. If not yet runnable locally, note it in **Unresolved**.
-- [ ] **Momus local review** — Run Momus review and capture the output
 - [ ] **gitleaks** — `gitleaks protect --staged` returns no findings
 
-Do not proceed if any check fails. If L1/L2 fails **5 consecutive times**, stop retrying and open a **Draft PR** instead (see Section 4).
+Do not proceed if any check fails. Resolve failures first, and use a **Draft PR** only when unresolved blockers remain (see Section 4).
 
 ---
 
@@ -29,7 +32,7 @@ Do not proceed if any check fails. If L1/L2 fails **5 consecutive times**, stop 
 
 > **Language rule:** Write all PR body content (변경 요약, 문서 영향, 미결/모호한 점, 세션 요약) in **Korean**.
 > Keep section header names exactly as shown in the template below (Korean).
-> Exception: code, commands, file paths, and proper nouns (Momus, Sudocode, etc.) stay as-is.
+> Exception: code, commands, file paths, and proper nouns (Sudocode, etc.) stay as-is.
 
 Write the PR body following the five-section Minimum Contract. Save to a temp file before passing to `gh`:
 
@@ -39,8 +42,8 @@ cat > /tmp/pr-body.md << 'EOF'
 
 <!-- 무엇을 왜 변경했는지. diff가 보여주는 내용이 아닌 이유와 맥락에 집중한다.
      Sudocode Issue ID를 반드시 명시한다 (예: EPIC-05).
-     "Closes #NNN" 문법은 사용하지 않는다 — 이 프로젝트는 GitHub Issues를 사용하지 않으며,
-     Issue close는 PR 머지 시 Sudocode 데몬이 자동 처리한다. -->
+     "Closes #NNN" 문법은 사용하지 않는다 — 이 프로젝트는 GitHub Issues가 아닌
+     Sudocode Issues (.sudocode/issues/)로 이슈를 관리하며, #NNN은 해당 시스템과 무관하다. -->
 
 Sudocode Issue: <issue-id>
 
@@ -74,7 +77,7 @@ ADR: <!-- 작성했으면 링크, 없으면 "없음" -->
 
 ## 로컬 리뷰 서명
 
-Reviewed-by: Momus (Local)
+Reviewed-by: review-subagent (local)
 EOF
 ```
 
@@ -104,7 +107,7 @@ gh pr create \
   --label "ai-generated"
 ```
 
-**Draft PR** (use when pre-flight fails 5×, or Unresolved items are blocking):
+**Draft PR** (use when Unresolved items are blocking):
 
 ```bash
 gh pr create \
@@ -122,7 +125,7 @@ gh pr create \
 
 ## 5. Post-PR: Sudocode Issue Status Update
 
-Immediately after creating the PR, record the issue state via Sudocode MCP. Do NOT set `closed` directly — PR close/merge is handled automatically by the Sudocode daemon.
+Immediately after creating the PR, record the issue state via Sudocode MCP. Do NOT set `closed` directly — `closed` transition happens after PR merge, outside the agent session.
 
 ```
 sudocode.update_issue("<issue-id>", {
@@ -141,6 +144,6 @@ sudocode.update_issue("<issue-id>", {
 |------|--------|
 | No `--no-verify` | Never bypass pre-commit hooks |
 | No secrets | Never include `.env` files or real credentials. Use `PLACEHOLDER` in examples |
-| Momus signature required | PR body must contain `Reviewed-by: Momus (Local)` — Auto-Merge will reject without it |
+| 로컬 리뷰 서명 필수 | PR body must contain `Reviewed-by: review-subagent (local)` — Auto-Merge will reject without it |
 | `.specs/` or `docs/adr/` changes | Auto-Merge is disabled automatically for these paths; flag for manual approval in PR body |
 | Scope | 1 Task = 1 Issue = 1 PR. Do not bundle unrelated changes |

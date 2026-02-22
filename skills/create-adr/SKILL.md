@@ -106,13 +106,19 @@ After writing the ADR file:
 - [ ] Link the ADR file path in the PR body `## Document Impact` section
 - [ ] Note the affected `.specs/` files (if any) in the same section
 - [ ] `approval:auto` is **disabled** for this PR — `docs/adr/` changes block Auto-Merge automatically (see `AGENTS.md`)
-- [ ] If the decision requires a `.specs/` update, add a spec-update task to `.roadmap/roadmap.md` first — the Sudocode daemon will sync it to the Issue DAG. If the Roadmap is not immediately editable (e.g., agent context), register directly via MCP as a fallback:
+- [ ] If the decision requires a `.specs/` update, create a dedicated spec-update Issue via MCP as the **primary path** (current runtime has no `.roadmap/` -> Sudocode auto-sync daemon). Optionally mirror the same task in the active Roadmap Markdown (for example, `.roadmap/ai_agent_roadmap.md`) for planning visibility:
   ```
-  sudocode.upsert_issue({
+  created = sudocode.upsert_issue({
     "title": "spec-update: <brief description>",
     "description": "Update .specs/<file>.md to reflect ADR NNNN decision.",
     "tags": ["spec-update"],
-    "depends_on": ["<current-issue-id>"]
+    "status": "open"
+  })
+
+  sudocode.link({
+    "from_id": "<current-issue-id>",
+    "to_id": created.issue_id,
+    "type": "blocks"
   })
   ```
 

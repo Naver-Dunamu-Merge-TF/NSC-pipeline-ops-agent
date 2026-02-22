@@ -42,7 +42,7 @@ jobs:
           fi
 
           pr_body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq '.body // ""')
-          if ! printf '%s\n' "$pr_body" | grep -Fq "Reviewed-by: Momus (Local)"; then
+          if ! printf '%s\n' "$pr_body" | grep -Fq "Reviewed-by: review-subagent (local)"; then
             echo "result=fallback" >> "$GITHUB_OUTPUT"
             echo "reason=Missing required PR body signature" >> "$GITHUB_OUTPUT"
             exit 0
