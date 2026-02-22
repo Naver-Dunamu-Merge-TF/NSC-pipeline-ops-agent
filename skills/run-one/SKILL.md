@@ -27,7 +27,7 @@ Purpose: Select one ready issue and drive it from `open` to `needs_review` with 
 1. Issue selection:
    - Run `sudocode-mcp_ready`.
    - From `ready.issues`, pick the issue with the smallest task number.
-2. Run `sudocode-mcp_show_issue` for the selected issue, then before starting implementation tell the user the selected task info (`id`, `title`, `description`) and explicitly say implementation is starting.
+2. Run `sudocode-mcp_show_issue` for the selected issue and use the task context (`id`, `title`, `description`) internally for implementation.
 3. Set selected issue status to `in_progress`.
 4. Create a dedicated git worktree for the selected issue, then do all following work in that worktree.
 5. Implement the issue scope.
