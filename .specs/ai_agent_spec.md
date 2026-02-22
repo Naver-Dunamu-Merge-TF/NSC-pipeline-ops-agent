@@ -488,10 +488,26 @@ LLM이 하는 일:
 
 화이트리스트에 없는 조치가 제안되면: 실행 거부 → "허용되지 않은 조치입니다" 리포트 저장 → 이메일 통보.
 
-`action_plan.parameters` 계약(엄격 검증):
-- `backfill_silver`: `pipeline`, `date_kst`, `run_mode` **3개만 허용** (추가/누락 파라미터 불가). `date_kst`는 반드시 `YYYY-MM-DD` 형식의 문자열이어야 한다.
-- `retry_pipeline`: `pipeline`, `run_mode` **2개만 허용** (추가/누락 파라미터 불가).
-- `skip_and_report`: `pipeline`, `reason` **2개만 허용** (추가/누락 파라미터 불가).
+`ActionPlan` 계약(ADR-0003 결정사항, execute 노드 필수 적용):
+- 허용 action은 `backfill_silver`, `retry_pipeline`, `skip_and_report` **3개만 허용**한다.
+- `backfill_silver.parameters`: `pipeline`, `date_kst`, `run_mode` **3개만 허용**.
+- `retry_pipeline.parameters`: `pipeline`, `run_mode` **2개만 허용**.
+- `skip_and_report.parameters`: `pipeline`, `reason` **2개만 허용**.
+
+execute 노드 검증 규칙(엄격 검증):
+- 필수 파라미터 누락 시 실행 거부.
+- 계약에 없는 추가 파라미터 존재 시 실행 거부.
+- 타입 불일치(예: 문자열 필드에 비문자열) 시 실행 거부.
+- `backfill_silver.date_kst`는 문자열이면서 `YYYY-MM-DD` 정규식(`^\d{4}-\d{2}-\d{2}$`)에 **엄격 일치**해야 한다.
+
+계약 확장 정책:
+- `action_plan.parameters` 필드 확장은 스키마 버전 상향(v2+)으로만 허용한다.
+- v2+ 확장 전에는 반드시 하위 호환 영향 리뷰를 완료한다.
+- 스키마 버전 식별자(version discriminator)의 위치/필드/판별 방식은 TBD이며, 별도 스펙 이슈에서 명시되기 전에는 v2+ 확장을 롤아웃하지 않는다.
+
+`pipeline`/`run_mode` enum 값 정책:
+- 현재 버전(v1)에서는 `pipeline`, `run_mode`의 enum 값 집합을 이 문서에서 확정하지 않는다(TBD).
+- enum 값 SSOT는 별도 스펙 이슈에서 명시하며, 그 전까지 execute는 키/필수성/타입/포맷만 검증한다.
 
 안전 장치: 기본값은 **dry-run** (실제 API 미호출, 실행 예정 명령만 출력).
 
