@@ -1,0 +1,33 @@
+# Boundary semantics: cutoff delay is STRICTLY greater-than (>) the threshold,
+# never greater-or-equal (>=).
+boundary:
+  cutoff_delay_comparison: ">"
+
+pipelines:
+  pipeline_silver:
+    schedule_kst: "00:00"
+    expected_completion_kst: "00:10"
+    poll_after_kst: "00:10"
+    cutoff_delay_minutes: 30
+    warning_at_kst: "00:30"
+
+  pipeline_b:
+    schedule_kst: "00:20"
+    expected_completion_kst: "00:35"
+    poll_after_kst: "00:35"
+    cutoff_delay_minutes: 30
+    warning_at_kst: "00:50"
+
+  pipeline_c:
+    schedule_kst: "00:35"
+    expected_completion_kst: "00:45"
+    poll_after_kst: "00:45"
+    cutoff_delay_minutes: 30
+    warning_at_kst: "01:05"
+
+  pipeline_a:
+    schedule: "every_10_minutes"
+    expected_completion_minutes: 2
+    poll_every_minutes: 5
+    cutoff_delay_minutes: 20
+    warning_after_consecutive_misses: 2
