@@ -20,6 +20,7 @@ def test_load_validation_targets_config_success() -> None:
 
     assert config.verify.check_2.max_change_ratio == 0.5
     assert config.verify.check_2.failure_comparison == ">="
+    assert config.verify.check_2.zero_baseline_policy == "fail_if_current_positive"
     assert config.verify.check_2.rollback_on_failure is True
     assert config.verify.check_2.targets[0].table == "silver.wallet_snapshot"
     assert config.verify.check_2.targets[0].pk == ["snapshot_ts", "user_id"]
@@ -65,6 +66,7 @@ verify:
         pk: ["tx_id", "wallet_id"]
     max_change_ratio: 0.5
     failure_comparison: ">="
+    zero_baseline_policy: "fail_if_current_positive"
     rollback_on_failure: true
   check_3:
     targets:
@@ -113,6 +115,7 @@ verify:
         pk: ["tx_id", "wallet_id"]
     max_change_ratio: 0.5
     failure_comparison: ">="
+    zero_baseline_policy: "fail_if_current_positive"
     rollback_on_failure: true
   check_3:
     targets:

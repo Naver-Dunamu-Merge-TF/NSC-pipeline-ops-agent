@@ -27,6 +27,7 @@ class VerifyCheck2Config(_StrictModel):
     targets: list[TableTarget]
     max_change_ratio: float
     failure_comparison: Literal[">="]
+    zero_baseline_policy: Literal["fail_if_current_positive"]
     rollback_on_failure: Literal[True]
 
 

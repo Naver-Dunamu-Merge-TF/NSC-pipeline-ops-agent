@@ -101,8 +101,8 @@ backlog
 
 ##### DoD
 
-* [ ] `config/validation_targets.yaml`(또는 동등 파일)에 verify #1~#5의 **대상 테이블/PK/임계값/정책(rollback 여부)**가 기획서 표와 동일하게 정의돼 있다
-* [ ] “전일 대비 ±50%”의 경계(=50%는 통과/실패 중 무엇인지)가 명확히 정의돼 있다
+* [ ] `config/validation_targets.yaml`(또는 동등 파일)에 verify #1~#5의 **대상 테이블/PK/임계값/정책(rollback 여부)**가 기획서 표와 동일하게 정의돼 있다 (`#2/#3`은 롤백 대상 테이블의 업스트림 멱등 키, `#4/#5`는 `silver.dq_status`의 `run_id,source_table`)
+* [ ] verify #2 경계가 “전일 대비 절대 변동률 `>= 0.5`(=50% 실패)”로 고정되고, 전일 건수=0일 때는 당일 건수>0 실패(당일도 0이면 통과) 규칙이 명확히 정의돼 있다
 * [ ] rollback 대상 Delta 테이블 목록이 설정에 포함돼 있다
 * [ ] 설정 스키마 검증(필수 키, pk 배열 타입 등) 테스트가 존재한다
 * [ ] 기존 CI가 모두 통과한다
@@ -140,6 +140,7 @@ backlog
 * [ ] `utils/config.py`에 런타임 설정 모델이 정의돼 있고, `TARGET_PIPELINES`, `CHECKPOINT_DB_PATH`, `LLM_DAILY_CAP`, `LANGFUSE_HOST` 등을 로드/검증한다
 * [ ] `TARGET_PIPELINES`가 `pipeline_silver,pipeline_b,...` 문자열에서 공백 제거 포함해 list로 안정적으로 파싱된다
 * [ ] `CHECKPOINT_DB_PATH` 기본값이 기획서 기본값(로컬 `checkpoints/agent.db`)과 정합하다
+* [ ] `LLM_DAILY_CAP` 미설정 시 기본값 30이 적용되고, 설정 시 override 값이 적용되며 양의 정수 검증이 수행된다
 * [ ] 누락 시 “어떤 키가 누락됐는지”를 포함한 오류로 fail-fast한다
 * [ ] 단위 테스트(정상/누락/형식 오류)가 존재한다
 * [ ] 기존 CI가 모두 통과한다
@@ -891,6 +892,7 @@ backlog
 * [ ] `tools/llm_client.py`(또는 동등)에 60초 타임아웃, 429 재시도(2s→4s→8s, 최대 3회)가 구현돼 있다(§2.5)
 * [ ] Permanent(401/403/404, 파싱/검증 실패 등)는 재시도하지 않는다
 * [ ] `LLM_DAILY_CAP`을 초과하면 “디그레이드 모드”로 전환할 수 있는 신호(예: 예외/리턴 코드)가 제공된다
+* [ ] `LLM_DAILY_CAP` 미설정 시 기본값 30을 사용하고, 설정 시 해당 값으로 캡 판정을 수행한다
 * [ ] 캡 카운트가 실행 간에도 유지되도록(예: 체크포인터 SQLite 내 별도 테이블) 최소한의 영속 저장이 있다
 * [ ] 단위 테스트(429 재시도, Permanent 무재시도, 캡 도달)가 존재한다
 * [ ] dev 환경에서 1회 LLM 호출 스모크(또는 완전 모킹)가 가능하다
@@ -1409,7 +1411,7 @@ backlog
 
 * [ ] `tools/domain_validator.py`가 #2(건수), #3(중복), #4(DQ 태그), #5(bad_records_rate) 검증을 수행할 수 있다
 * [ ] 검증 결과가 구조화된 dict로 반환된다(측정값 + pass/fail + 임계값)
-* [ ] 경계 테스트(±50% 정확히 경계, 중복 1건, bad_records_rate 정확히 임계)가 존재한다
+* [ ] 경계 테스트(`abs(change_ratio)=0.5` 실패, 전일 건수=0 && 당일>0 실패, 중복 1건 실패, bad_records_rate 임계값 경계)가 존재한다
 * [ ] 단위 테스트(SQL 생성/파라미터 검증)가 존재한다
 * [ ] 기존 CI가 모두 통과한다
 

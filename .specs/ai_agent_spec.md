@@ -432,10 +432,20 @@ LangGraph `interrupt()`로 에이전트를 일시 정지하고 운영자 승인�
 | # | 검증 항목 | SQL/로직 | 실패 임계값 | 실패 시 동작 |
 |---|----------|---------|-----------|------------|
 | 1 | 잡 상태 | `pipeline_state.status == "success"` | status ≠ success | 즉시 에스컬레이션 |
-| 2 | 레코드 건수 | `SELECT COUNT(*) FROM {target_table} WHERE date_kst = '{date}'` | 전일 대비 ±50% 이상 변동 | 롤백 + 에스컬레이션 |
+| 2 | 레코드 건수 | `SELECT COUNT(*) FROM {target_table} WHERE date_kst = '{date}'` | 전일 대비 절대 변동률 `>= 0.5` (`=50%` 포함 실패), 단 전일 건수=0이면 당일 건수>0을 실패(당일도 0이면 통과)로 고정 | 롤백 + 에스컬레이션 |
 | 3 | 중복 키 | `SELECT {pk}, COUNT(*) FROM {table} GROUP BY {pk} HAVING COUNT(*) > 1` | 중복 1건 이상 | 롤백 + 에스컬레이션 |
 | 4 | DQ 태그 재확인 | `SELECT * FROM silver.dq_status WHERE run_id = '{new_run_id}' AND dq_tag IN ('SOURCE_STALE', 'EVENT_DROP_SUSPECTED')` | 이상 태그 존재 | 경고 리포트 (롤백하지 않음) |
 | 5 | bad_records 비율 | `bad_records_rate` 재계산 | 여전히 임계값 초과 | 롤백 + 에스컬레이션 |
+
+DEV-003 기준으로 verify/rollback 대상 카탈로그는 `config/validation_targets.yaml`에서 아래와 같이 고정한다.
+
+| 검증 | 대상 테이블 | PK | 임계값/정책 | rollback |
+|---|---|---|---|---|
+| #1 | `gold.pipeline_state` | `pipeline_name` | `status != "success"`면 실패 | `false` |
+| #2 | `silver.wallet_snapshot`, `silver.ledger_entries` | `snapshot_ts,user_id`; `tx_id,wallet_id` | 전일 대비 절대 변동률 `>= 0.5`면 실패 (`=50%` 포함), 전일 건수=0이면 당일 건수>0 실패 | `true` |
+| #3 | `silver.wallet_snapshot`, `silver.ledger_entries` | `snapshot_ts,user_id`; `tx_id,wallet_id` | 중복 건수 `>= 1`이면 실패 | `true` |
+| #4 | `silver.dq_status` | `run_id,source_table` | `dq_tag IN ('SOURCE_STALE', 'EVENT_DROP_SUSPECTED')` 존재 시 경고(비차단) | `false` |
+| #5 | `silver.dq_status` | `run_id,source_table` | `bad_records_rate > 0.05`면 실패 | `true` |
 
 `#1/#2/#3/#5`는 **blocking 검증**이다.  
 `#1` 실패(잡 상태 불일치)는 롤백 없이 즉시 에스컬레이션한다 (`final_status = "escalated"`).  
@@ -522,7 +532,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 | 실행 모드 | Key Vault | `agent-execute-mode` | `dry-run` (고정) | `dry-run` (고정) | `live` |
 | 체크포인터 경로 | 환경변수 | `CHECKPOINT_DB_PATH` | `checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` |
 | LangFuse 호스트 | 환경변수 | `LANGFUSE_HOST` | `http://localhost:3000` | `https://langfuse.internal.nsc.com` | `https://langfuse.internal.nsc.com` |
-| LLM 일일 호출 상한 | 환경변수 | `LLM_DAILY_CAP` | `100` (개발용) | `20` | `10` |
+| LLM 일일 호출 상한 | 환경변수 | `LLM_DAILY_CAP` | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
 | 대상 파이프라인 목록 | 환경변수 | `TARGET_PIPELINES` | `pipeline_silver` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` |
 
 #### 배포
@@ -586,6 +596,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 |------|-----|------|
 | 요청 타임아웃 | 60초 | triage 응답이 길 수 있음 |
 | max_tokens | analyze: 2,000 / triage: 3,000 | 비용 제어 + 응답 길이 제한 |
+| 일일 호출 상한 | `LLM_DAILY_CAP` (기본 30회/day, 환경변수 override) | 비용 통제 + 운영 환경별 조정 |
 | 429 재시도 | 최대 3회 (backoff) | Azure OpenAI rate limit 대응 |
 | 연속 실패 시 | deterministic-only 모드 전환 | LLM 불안정 시에도 감지/경고는 유지 |
 
@@ -733,12 +744,12 @@ def emit_alert(severity: str, event_type: str, summary: str, detail: dict):
 
 LLM 호출 비용 제어를 위한 상한을 설정한다.
 
-- **하루 최대 LLM 호출 횟수: 10회**. 정상 시 0회, 장애 시 analyze + triage + postmortem = 3회. 상한 도달 시 추가 호출을 차단하고 이메일로 통보.
+- **일일 LLM 호출 상한은 `LLM_DAILY_CAP`로 제어하며 기본값은 30회/day**. 정상 시 0회, 장애 시 analyze + triage + postmortem = 3회. 운영 환경에서는 장애 빈도/비용 예산에 맞춰 값을 조정한다. 상한 도달 시 추가 호출을 차단하고 이메일로 통보.
 - LangFuse 대시보드에서 일별 토큰 사용량과 비용을 추적.
 
 근거: 감지 루프 버그나 반복 장애로 LLM 호출이 무한 반복되는 것을 방지한다.
 
-**디그레이드 모드 (캡 도달 시)**: 하루 LLM 호출 상한에 도달하면 에이전트는 LLM 없이 동작하는 deterministic-only 모드로 전환한다.
+**디그레이드 모드 (캡 도달 시)**: 설정된 일일 LLM 호출 상한(`LLM_DAILY_CAP`)에 도달하면 에이전트는 LLM 없이 동작하는 deterministic-only 모드로 전환한다.
 
 | 노드 | 정상 모드 | 디그레이드 모드 |
 |------|----------|--------------|
@@ -756,6 +767,11 @@ LLM 호출 비용 제어를 위한 상한을 설정한다.
 #### 롤백 전략
 
 에이전트가 backfill을 실행하기 전에 대상 Delta 테이블의 현재 버전을 기록하고, 실행 후 verify에서 데이터 정합성 문제가 발견되면 롤백한다.
+
+DEV-003 기준 rollback 대상 Delta 테이블은 아래 2개로 고정한다.
+
+- `silver.wallet_snapshot` (PK: `snapshot_ts`, `user_id`)
+- `silver.ledger_entries` (PK: `tx_id`, `wallet_id`)
 
 ```
 [execute 전]
@@ -1288,7 +1304,7 @@ project/
 | 알림 | Azure Monitor Alert + Action Group (기존 Log Analytics 활용, 추가 인프라 없음) |
 | 감사 로그 | LangFuse trace + 승인자 ID/시각 기록 + Log Analytics |
 | 롤백 | Delta Lake 타임 트래블 (DESCRIBE HISTORY → RESTORE TABLE) |
-| 비용 관리 | 하루 LLM 호출 상한 10회 + 캡 도달 시 디그레이드 모드 |
+| 비용 관리 | 환경변수 기반 일일 LLM 호출 상한(`LLM_DAILY_CAP`, 기본 30회/day) + 캡 도달 시 디그레이드 모드 |
 | 에러 핸들링 | Transient/Permanent 분류 + Transient 제한 재시도 + LLM 호출 타임아웃/fallback |
 | 시간대 표준 | 내부 처리 UTC ISO8601, 표시 KST |
 | LLMOps | LangFuse (관측, Self-Hosted) + Prompt Registry (버전 관리) + Eval Runner (품질 평가) |

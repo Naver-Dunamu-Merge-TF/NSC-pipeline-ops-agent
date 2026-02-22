@@ -1,4 +1,5 @@
 # verify #2 레코드 건수는 전일 대비 절대 변동률이 50% 이상(>= 0.5)일 때 실패로 간주한다.
+# 전일 건수가 0이면 당일 건수 > 0을 실패로, 당일 건수도 0이면 통과로 간주한다.
 verify:
   check_1:
     table: "gold.pipeline_state"
@@ -14,6 +15,7 @@ verify:
         pk: ["tx_id", "wallet_id"]
     max_change_ratio: 0.5
     failure_comparison: ">="
+    zero_baseline_policy: "fail_if_current_positive"
     rollback_on_failure: true
 
   check_3:
