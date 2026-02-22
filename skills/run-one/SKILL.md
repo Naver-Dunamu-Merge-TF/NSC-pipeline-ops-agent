@@ -37,6 +37,7 @@ Purpose: Select one ready issue and drive it from `open` to `needs_review` with 
    - Repeat until blocking findings are cleared.
 7. Before `needs_review`, if any `decision-bearing implementation change` occurred, confirm ADR and linked follow-up issue were both created.
 8. On success, set issue status to `needs_review`.
+   - If the selected issue is `ADR-###`, set the linked ADR document `Status` to `Confirmed`.
 9. Self-retrospective: verify each Task Order step was executed as written. If any was skipped or deviated from, note it to the user.
 
 ## Non-Negotiable Rules
