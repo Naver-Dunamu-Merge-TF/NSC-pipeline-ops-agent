@@ -5,13 +5,13 @@ description: "Use when the user types /approve to fast-path approve completed wo
 
 # approve
 
-Fast-path approval: commit → merge into `dev` → remove worktree → delete branch → close Sudocode issue.
+Execute all steps below immediately and in sequence. Non-interactive — do not pause for confirmation between steps.
 
-Announce at start: "Running approve to commit, merge, and clean up."
+Say "approve 시작합니다." then proceed without waiting.
 
 ## Step 1: Detect state
 
-Determine current branch (BRANCH), main repo path (MAIN_REPO, first entry of worktree list), and current directory (CWD).
+Get current branch (BRANCH), main repo path (MAIN_REPO = first path in `git worktree list`), and current directory (CWD).
 
 Cases:
 - **Case A**: already on `dev` — skip merge
@@ -36,7 +36,7 @@ Order for Case C matters: remove worktree before deleting the branch (cannot del
 
 Determine the issue ID:
 1. Look in the current session context — the agent announces the issue ID it worked on.
-2. If not found, ask the user: "Which issue ID should I close?"
+2. If not found, ask the user: "어떤 이슈 ID를 닫을까요?"
 
 Do not search logs or files. Context or user answer only.
 
