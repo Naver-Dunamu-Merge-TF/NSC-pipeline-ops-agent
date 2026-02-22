@@ -26,9 +26,9 @@ Inspect what changed, then commit all tracked modifications. Skip if working tre
 
 **Case A**: nothing to merge. Proceed to Step 4.
 
-**Case B**: checkout `dev`, pull, merge BRANCH with `--no-ff`, delete BRANCH.
+**Case B**: checkout `dev`, merge BRANCH with `--no-ff`, delete BRANCH.
 
-**Case C**: `git checkout` is unavailable (dev is checked out in the main repo). Use the main repo context (`git -C MAIN_REPO`) for all operations: pull, merge, remove worktree, delete branch.
+**Case C**: `git checkout` is unavailable (dev is checked out in the main repo). Use the main repo context (`git -C MAIN_REPO`) for all operations: merge, remove worktree, delete branch.
 
 Order for Case C matters: remove worktree before deleting the branch (cannot delete a branch while it is checked out in a worktree).
 
