@@ -1,6 +1,6 @@
 ---
 name: approve
-description: "Use when the user types /approve to fast-path approve completed work. Commits all pending changes, merges the current feature branch into dev, removes the worktree, deletes the feature branch, and closes the associated Sudocode issue. Non-interactive."
+description: "Use when the user types /approve to fast-path approve completed work. Commits pending tracked changes and policy-eligible untracked files, merges the current feature branch into dev, removes the worktree, deletes the feature branch, and closes the associated Sudocode issue. Non-interactive."
 ---
 
 # approve
@@ -18,9 +18,23 @@ Cases:
 - **Case B**: feature branch, not in a worktree
 - **Case C**: feature branch, inside a worktree ← normal state after an agent session
 
-## Step 2: Commit pending changes
+## Step 2: Stage and commit changes
 
-Inspect what changed, then commit all tracked modifications. Skip if working tree is already clean. Do not stage untracked files.
+Run `git status --short`, then apply this staging policy without asking the user:
+
+- **Common**: stage tracked modifications with `git add -u`.
+- **Case A** (`dev`): do not stage untracked files.
+- **Case B** (feature branch, non-worktree): stage only untracked files created/edited by this agent in the current session context.
+- **Case C** (feature branch, worktree): stage only issue-scope untracked files for the current task/worktree.
+
+Safety rules:
+
+- Never stage potential secrets: `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*credentials*.json`, `secrets.*`.
+- Verify staged files with `git diff --cached --name-only`.
+- If nothing is staged and the working tree is clean, skip commit.
+- If nothing is staged but the working tree is not clean, stop before merge/cleanup and report the remaining files (no merge, no worktree removal).
+
+If files are staged, create one commit.
 
 ## Step 3: Merge and clean up
 
@@ -44,6 +58,13 @@ Once the ID is known, use `sudocode-mcp` to set its status to `closed`.
 
 ## Step 5: Report
 
-Summarize: commit made, branch merged and deleted, worktree removed (if applicable), issue closed.
+Summarize in Korean:
+
+- commit created or skipped (and why)
+- number of staged tracked/untracked files
+- files excluded by safety denylist
+- branch merged/deleted status
+- worktree removed status (if applicable)
+- issue closed status
 
 All user-facing messages must be written in Korean.
