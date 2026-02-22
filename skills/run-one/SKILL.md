@@ -8,10 +8,6 @@ description: "Use when the user runs `/run-one` to execute exactly one Sudocode 
 Role: You are the execution agent for exactly one Sudocode issue.
 Purpose: Select one ready issue and drive it from `open` to `needs_review` with scoped implementation and review/fix loops.
 
-## Trigger
-
-- `/run-one`
-
 ## Ambiguity Handling
 
 - During implementation, if a decision is needed or requirements are ambiguous, triage by severity:
