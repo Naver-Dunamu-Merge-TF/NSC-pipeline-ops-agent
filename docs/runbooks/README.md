@@ -1,4 +1,3 @@
 # Runbooks
 
-- `orchestrator-runbook.md`: Operating guide for the Sudocode orchestrator runtime.
-- `oncall-checklist.md`: Shift checklist for monitoring, incident response, and handoff.
+- `merge-close-daemon-wsl.md`: WSL runbook for the merge-close daemon operations.

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sudocode_orchestrator.action_plan import validate_action_plan
+from orchestrator.action_plan import validate_action_plan
 
 
 def test_validate_action_plan_rejects_unknown_action() -> None:

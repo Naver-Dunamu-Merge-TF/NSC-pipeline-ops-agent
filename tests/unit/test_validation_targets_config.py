@@ -7,7 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from sudocode_orchestrator.validation_targets_config import (
+from orchestrator.validation_targets_config import (
     load_validation_targets_config,
 )
 

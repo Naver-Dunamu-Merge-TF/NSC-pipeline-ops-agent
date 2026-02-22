@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from sudocode_orchestrator.pipeline_monitoring_config import (
+from orchestrator.pipeline_monitoring_config import (
     load_pipeline_monitoring_config,
 )
 

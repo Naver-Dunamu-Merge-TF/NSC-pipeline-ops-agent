@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from graph.state import AgentState
-from sudocode_orchestrator.action_plan import validate_action_plan
+from orchestrator.action_plan import validate_action_plan
 from tools import databricks_jobs
 
 READ_FIELDS = ("action_plan", "human_decision", "pipeline")

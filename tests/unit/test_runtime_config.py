@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sudocode_orchestrator.utils.config import load_runtime_settings
+from orchestrator.utils.config import load_runtime_settings
 
 
 def test_load_runtime_settings_parses_csv_and_overrides() -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sudocode_orchestrator.databricks_jobs_config import load_databricks_jobs_config
+from orchestrator.databricks_jobs_config import load_databricks_jobs_config
 
 
 _SUPPORTED_ACTIONS = {"backfill_silver", "retry_pipeline"}
