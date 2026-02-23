@@ -1,0 +1,4 @@
+langgraph==1.0.9
+langgraph-checkpoint-sqlite==3.0.3
+pydantic==2.12.5
+PyYAML==6.0.3
