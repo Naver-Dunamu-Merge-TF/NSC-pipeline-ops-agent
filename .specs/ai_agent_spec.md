@@ -936,20 +936,16 @@ prompts/
 prompts:
   dq01_bad_records:
     active_version: "v1.0"
-    model: "gpt-4o"
-    temperature: 0.2
     description: "bad_records 위반 분석 + 수정 가이드 생성"
   ops01_triage:
     active_version: "v1.0"
-    model: "gpt-4o"
-    temperature: 0.1
     description: "파이프라인 장애 트리아지 + 실행 가능 조치 제안"
   pm01_postmortem:
     active_version: "v1.0"
-    model: "gpt-4o"
-    temperature: 0.3
     description: "장애 대응 완료 후 포스트모템 초안 생성"
 ```
+
+`model/temperature`는 각 프롬프트의 활성 버전 메타(`{version}_meta.yaml`)에서 로드한다.
 
 LangFuse trace에 prompt_version을 메타데이터로 기록하여 "어떤 프롬프트 버전이 어떤 결과를 냈는지" 추적 가능.
 
@@ -1110,10 +1106,10 @@ prompts/
 # registry.yaml에 추가
   judge01_eval:
     active_version: "v1.0"
-    model: "gpt-4o"
-    temperature: 0.0
     description: "Eval Runner용 LLM-as-a-Judge 채점 프롬프트"
 ```
+
+Judge의 `model/temperature`도 `prompts/judge/v1.0_meta.yaml`에서 관리한다.
 
 Judge 프롬프트는 케이스별로 **채점 기준(rubric)**을 포함한다. 예시:
 
@@ -1366,7 +1362,7 @@ project/
 | 6 | **RBAC/SoD 승인 권한 통제** | `human_decision_by` 기록 | Azure AD 그룹 기반 권한 강제 + MFA + maker-checker | CLI → ITSM/ChatOps 연동 시 함께 구현 |
 | 7 | **민감정보 마스킹** | bad_records 샘플링으로 LLM 입력 제한 | LLM 입력 허용필드 allowlist + redacted payload 미들웨어 | bad_records에 PII 포함 여부 사전 확인 필요 |
 | 8 | **데이터 수명주기 정책** | 저장 위치만 정의 | 아티팩트별 보존기간/파기/접근역할 표 | 전사 보존 정책과 정합 필요 |
-| 9 | **프롬프트 릴리즈 프로세스** | registry.yaml + active_version | PR → eval → staging shadow → CAB 승인 → prod 전환 → 롤백 | CI/CD 파이프라인과 연동 |
+| 9 | **프롬프트 릴리즈 프로세스** | registry.yaml(active_version/description) + `{version}_meta.yaml`(model/temperature) | PR → eval → staging shadow → CAB 승인 → prod 전환 → 롤백 | CI/CD 파이프라인과 연동 |
 | 10 | **Eval Dataset 거버넌스** | fixtures 디렉토리 + 케이스 매핑 | 버전 관리 + 익명화 + 커버리지 매트릭스 + 변경 승인 절차 | — |
 | 11 | **온라인 품질 모니터링** | LangFuse trace + 비용 추적 | KPI 표(파싱 성공률, 위반률, 승인률) + Alert 룰 | LangFuse 대시보드 커스텀 설정 |
 | 12 | **승인 채널 확장** | CLI | ITSM 티켓 또는 ChatOps(Teams) 연동 + SSO 인증 | CLI는 비상/백업 채널로 격하 |

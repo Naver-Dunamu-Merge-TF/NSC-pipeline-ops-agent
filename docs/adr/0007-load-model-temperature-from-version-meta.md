@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
