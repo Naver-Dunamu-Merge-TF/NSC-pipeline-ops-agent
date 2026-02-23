@@ -1,7 +1,7 @@
 # AI Agent Spec
 
 > **프로젝트**: NSC 결제/정산 데이터 플랫폼 — 파이프라인 장애 자동 대응 에이전트
-> **최종 수정일**: 2026-02-19
+> **최종 수정일**: 2026-02-23
 
 ---
 
@@ -169,7 +169,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 
 - `graph/build_graph()`는 `langgraph` 패키지가 설치된 정식 의존성 경로를 기본으로 사용한다.
 - 의존성 설치 경로 SSOT는 저장소 루트 `requirements.txt`이며, 로컬/CI 모두 `python -m pip install -r requirements.txt`를 사용한다.
-- fallback shim은 의존성 미설치 환경의 최소 실행 호환을 위해 유지하되, 정식 경로 검증 테스트(`tests/unit/test_graph_build_and_smoke.py`)를 기준 경로로 유지한다.
+- fallback shim은 의존성 미설치 환경의 최소 실행 호환을 위해 유지하되, 정식 경로(import gate + L2 test) 안정성 창(2~4주)이 충족되기 전에는 shim 축소/strict failover 전환을 보류한다.
 
 ### 2.2 상태 스키마
 
@@ -708,11 +708,12 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 Databricks Job 실행 환경에서 `checkpoints/agent.db`를 로컬 경로로 두면 클러스터 재시작 시 유실된다.
 DBFS 영속 경로를 사용하여 Job 재시작 후에도 마지막 체크포인트에서 재개 가능하도록 한다.
 
-**LangGraph 의존성 정책 (ADR-0006)**
+**LangGraph 의존성 정책 (ADR-0006/0010/0011)**
 
 - 로컬/CI 모두 레포 루트 가상환경(`.venv`) 기준으로 `requirements-dev.txt`를 설치한다 (`.venv/bin/python -m pip install -r requirements-dev.txt`).
 - `langgraph`와 `langgraph-checkpoint-sqlite`를 정식 의존성으로 유지하고, `langgraph.checkpoint.sqlite.SqliteSaver` import 성공을 체크포인터 경로 유효성의 전제 조건으로 본다.
 - fallback shim은 `langgraph.graph` 디스커버리(`importlib.util.find_spec`)가 불가한 부트스트랩 환경(패키지 미설치 포함)에서만 허용하며, CI L2는 `langgraph.graph` import + `langgraph.checkpoint.sqlite.SqliteSaver` import 성공을 게이트로 사용한다.
+- ADR-0011 재평가 기준으로 2026-02-23 현재 2~4주 안정성 창이 아직 충족되지 않았으므로, shim은 유지하고 축소/strict failover 전환은 다음 관측 창까지 보류한다.
 
 | 환경 | 경로 | 비고 |
 |------|------|------|

@@ -6,12 +6,13 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
 ADR-0006은 `langgraph.graph` 디스커버리 가능 시 정식 경로를 사용하고, 미설치 부트스트랩 환경에서는 fallback shim을 허용하도록 결정했으며, 로컬 표준 환경과 CI L2에서 import/스모크가 연속 안정 통과하면 shim 제거/축소를 재평가하도록 후속 조건을 남겼다.
 DEV-054 재평가 시점에서 GitHub Actions `CI L2` 가용 관측치는 최근 2일(2026-02-20~2026-02-21) 9건 성공으로 확인되었지만, 이슈 DoD가 요구한 2~4주 창에는 아직 도달하지 못했다. 해당 수치의 추출 기준/원시 근거(run_id, 링크)는 `docs/reports/2026-W08-langgraph-shim-reassessment.md`의 "추출 범위/필터(재현 가능 기준)" 및 "원시 근거(런 ID/링크)"에 기록했다.
+후속 재평가(i-98nn)에서도 안정성 창 미충족으로 동일 결론을 재확인했으며, 상세 집계/판정은 `docs/reports/2026-W09-langgraph-shim-reassessment.md`와 후속 결정 `docs/adr/0011-reaffirm-langgraph-shim-until-formal-path-window.md`에 기록한다.
 현재 시점에 shim을 제거하거나 강제 실패 경로로 전환하면 단기적으로는 경로 단순화 이점이 있으나, 표본 부족 상태에서 의사결정을 고정해 부트스트랩 환경 안정성을 해칠 수 있다.
 
 ## Decision
