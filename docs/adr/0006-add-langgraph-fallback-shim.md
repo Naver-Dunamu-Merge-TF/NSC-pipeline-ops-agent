@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
@@ -29,6 +29,8 @@ PendingReview
 - 선택 대안: fallback shim을 추가한다.
   - 장점: 환경 의존성 없이 DEV-010의 그래프 연결성과 스모크 실행을 검증할 수 있고, `langgraph`가 설치되면 동일 코드 경로에서 실제 LangGraph로 전환된다.
   - 단점: 임시 shim 유지 비용이 생기며, 향후 LangGraph 정식 의존성 정비 시 제거/축소 여부를 재평가해야 한다.
-- 후속 검토 항목(ADR-0006 추적):
-  - shim 유지 비용: LangGraph API 변경(노드/엣지/체크포인터 계약 변경) 시 shim 동기화 부담이 누적되므로, 정식 의존성 경로가 CI에서 안정화되면 shim 범위를 부트스트랩 최소 경로로 축소한다.
-  - 제거/축소 재평가 조건: 로컬 개발 표준(`.venv` + `requirements-dev.txt`)과 CI L2에서 `langgraph.graph` import + `langgraph.checkpoint.sqlite.SqliteSaver` import 및 그래프 스모크가 연속으로 안정 통과하면 shim 제거 또는 strict failover(미설치 시 즉시 실패)로 전환 여부를 재평가한다.
+후속 검토 항목(ADR-0006 추적, 재평가 트리거 포함):
+
+- shim 유지 비용: LangGraph API 변경(노드/엣지/체크포인터 계약 변경)과 shim/정식 경로의 분기 차이로 동기화 부담이 누적되는지 주기적으로 점검한다.
+- 제거/전환 재평가 조건: 로컬/CI 표준 실행(`requirements.txt` 기반 설치 + 필요 시 개발 의존성)에서 `langgraph.graph` import, `langgraph.checkpoint.sqlite.SqliteSaver` import, 그래프 스모크가 연속으로 안정 통과하면 shim 제거 또는 strict failover(미설치 시 즉시 실패) 전환을 재평가한다.
+- 축소 재평가 조건: 즉시 제거가 어렵다면 shim을 부트스트랩 최소 범위로 축소하고, 정식 경로 검증 테스트 비중을 단계적으로 늘린다.

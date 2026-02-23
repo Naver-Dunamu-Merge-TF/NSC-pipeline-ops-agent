@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import graph.graph as graph_module
 from graph.graph import END, START, build_graph
 
 
@@ -55,3 +56,19 @@ def test_graph_smoke_invoke_no_issues_returns_without_error() -> None:
 
     assert result["detected_issues"] == []
     assert result["pipeline_states"] == {}
+
+
+def test_build_graph_uses_langgraph_adapter_path(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "graph.graph.importlib.util.find_spec",
+        lambda name: object() if name == "langgraph.graph" else None,
+    )
+    monkeypatch.setattr(
+        graph_module, "_build_langgraph", lambda *_args, **_kwargs: object()
+    )
+
+    graph = graph_module.build_graph()
+
+    assert graph.backend == "langgraph"

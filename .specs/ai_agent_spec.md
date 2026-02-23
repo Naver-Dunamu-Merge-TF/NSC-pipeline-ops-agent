@@ -165,6 +165,12 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 | verify | blocking 검증 실패 (#2/#3/#5) | rollback → END | 롤백 + 에스컬레이션 |
 | verify | 잡 실패 | END | `final_status = "failed"` 기록 + 에스컬레이션 |
 
+**LangGraph 의존성/실행 정책**:
+
+- `graph/build_graph()`는 `langgraph` 패키지가 설치된 정식 의존성 경로를 기본으로 사용한다.
+- 의존성 설치 경로 SSOT는 저장소 루트 `requirements.txt`이며, 로컬/CI 모두 `python -m pip install -r requirements.txt`를 사용한다.
+- fallback shim은 의존성 미설치 환경의 최소 실행 호환을 위해 유지하되, 정식 경로 검증 테스트(`tests/unit/test_graph_build_and_smoke.py`)를 기준 경로로 유지한다.
+
 ### 2.2 상태 스키마
 
 ```python

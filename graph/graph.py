@@ -36,6 +36,7 @@ class _GraphDefinition:
 
 class _CompiledGraphShim:
     def __init__(self, definition: _GraphDefinition):
+        self.backend = "shim"
         self.edges = definition.edges
         self.conditional_edges = definition.conditional_edges
         self._nodes = definition.nodes
@@ -72,6 +73,7 @@ class _CompiledGraphShim:
 
 class _CompiledGraphAdapter:
     def __init__(self, compiled: Any, definition: _GraphDefinition):
+        self.backend = "langgraph"
         self._compiled = compiled
         self.edges = definition.edges
         self.conditional_edges = definition.conditional_edges
