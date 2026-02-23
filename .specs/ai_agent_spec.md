@@ -358,13 +358,25 @@ UTC 24시간 기본 윈도우 재평가 트리거(ADR-0008 rationale 연동):
 
 두 노드는 입력 소스와 관심사가 다르다. analyze는 `bad_records` + `contracts.py` 기반의 **데이터 품질 분석**을 담당하고, triage는 analyze 결과(없을 수 있음) + `pipeline_state` + `exception_ledger` + `dq_status`를 합쳐 **운영 판단과 조치 제안**을 담당한다. DQ 태그 전용 경로에서는 analyze를 스킵하고 triage가 규칙 기반 맥락만으로 `skip_and_report`를 제안할 수 있게 설계한다.
 
-#### report_only — 리포트 아티팩트 저장 매체 정책 (ADR-0012)
+#### report_only — 리포트 아티팩트 저장 매체 정책 (ADR-0012, ADR-0014)
 
 `report_only`의 리포트 아티팩트 저장 매체는 ADR-0012(`docs/adr/0012-use-log-output-for-report-only-payload.md`)와 후속 정책(i-4oua) 기준으로 `log_only`로 고정한다.
 
 - 필수 동작: `incident_id`, `pipeline`, `detected_issues`, `major_status`를 포함한 결정적(JSON key 정렬) 로그를 1건 남긴다.
 - 상태 계약: AgentState에는 기존처럼 `final_status = "reported"`만 기록하고, 파일 경로/체크포인트 아티팩트 포인터는 쓰지 않는다.
 - 대안 정책: 파일 저장, 체크포인트 아티팩트 저장은 현재 범위에서 채택하지 않으며, 운영/감사 요구로 필요해질 경우 별도 이슈와 ADR 업데이트로 재결정한다.
+- 운영 트리거(ADR-0014): 다음 조건 중 하나라도 운영 근거와 함께 확인되면 파일/체크포인트 확장을 재평가한다.
+  - 감사 요구: 로그만으로 감사 증적(원본 payload 재현, 변경 불가 보관, 추적성)을 충족하지 못하는 사례가 발생한다.
+  - 보존 기간: report_only payload의 요구 보존 기간/조회 SLA가 현재 로그 보존 정책으로 충족되지 않는다.
+  - 재처리 시나리오: 과거 incident payload 기반 재처리가 반복적으로 필요하고 로그 재수집만으로 재현이 어렵다.
+- 전환 의사결정 기준: 트리거 충족 전까지 `report_artifact_storage`는 코드와 테스트에서 `log_only`로 유지한다. 트리거 충족 시에는 아래 절차를 순서대로 완료한 뒤에만 저장 매체 전환을 허용한다.
+  1. 트리거 근거와 영향 범위를 이슈로 문서화한다.
+  2. ADR-0014와 본 섹션에 채택 매체(파일/체크포인트), 롤백 조건, 운영 책임을 동기화한다.
+  3. 구현 체크리스트(상태 계약, 저장 경로, 테스트/검증)를 합의하고 회귀 게이트를 추가한다.
+- 확장 구현 체크리스트:
+  - 상태 계약: AgentState에 필요한 저장 포인터 필드를 명시하고 기존 `final_status` 의미를 유지한다.
+  - 저장 경로: 파일/체크포인트 경로 규칙(네이밍, 권한, 보존/파기, 접근 주체)을 런북과 함께 확정한다.
+  - 테스트/검증: `report_artifact_storage` 정책 테스트, 경계 케이스(빈 이슈/상태 누락), 경로 권한/보존 검증, 회귀 테스트를 CI 게이트로 고정한다.
 
 #### analyze — bad_records 원인 분석
 
