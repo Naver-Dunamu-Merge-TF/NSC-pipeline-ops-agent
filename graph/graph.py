@@ -253,7 +253,12 @@ def build_graph(checkpointer: Any | None = None) -> Any:
     definition = _build_definition()
 
     try:
-        compiled = _build_langgraph(definition, checkpointer=checkpointer)
-        return _CompiledGraphAdapter(compiled, definition)
-    except ImportError:
+        langgraph_spec = importlib.util.find_spec("langgraph.graph")
+    except ModuleNotFoundError:
+        langgraph_spec = None
+
+    if langgraph_spec is None:
         return _CompiledGraphShim(definition)
+
+    compiled = _build_langgraph(definition, checkpointer=checkpointer)
+    return _CompiledGraphAdapter(compiled, definition)

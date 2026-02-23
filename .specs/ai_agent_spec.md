@@ -651,6 +651,12 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 Databricks Job 실행 환경에서 `checkpoints/agent.db`를 로컬 경로로 두면 클러스터 재시작 시 유실된다.
 DBFS 영속 경로를 사용하여 Job 재시작 후에도 마지막 체크포인트에서 재개 가능하도록 한다.
 
+**LangGraph 의존성 정책 (ADR-0006)**
+
+- 로컬/CI 모두 레포 루트 가상환경(`.venv`) 기준으로 `requirements-dev.txt`를 설치한다 (`.venv/bin/python -m pip install -r requirements-dev.txt`).
+- `langgraph`와 `langgraph-checkpoint-sqlite`를 정식 의존성으로 유지하고, `langgraph.checkpoint.sqlite.SqliteSaver` import 성공을 체크포인터 경로 유효성의 전제 조건으로 본다.
+- fallback shim은 `langgraph.graph` 디스커버리(`importlib.util.find_spec`)가 불가한 부트스트랩 환경(패키지 미설치 포함)에서만 허용하며, CI L2는 `langgraph.graph` import + `langgraph.checkpoint.sqlite.SqliteSaver` import 성공을 게이트로 사용한다.
+
 | 환경 | 경로 | 비고 |
 |------|------|------|
 | Databricks (prod/staging) | `/dbfs/mnt/agent-state/checkpoints/agent.db` | DBFS 마운트, 클러스터 재시작 후에도 유지 |

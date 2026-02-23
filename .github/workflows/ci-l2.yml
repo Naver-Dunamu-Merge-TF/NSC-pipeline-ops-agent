@@ -27,14 +27,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            python -m pip install -r requirements.txt
-          fi
-          if [ -f requirements-dev.txt ]; then
-            python -m pip install -r requirements-dev.txt
-          fi
-          python -m pip install pytest pytest-cov
+          test -f requirements-dev.txt
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - name: Verify dependency consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pip check
+
+      - name: Verify LangGraph runtime imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python - <<'PY'
+          import importlib
+          from langgraph.checkpoint.sqlite import SqliteSaver
+
+          importlib.import_module("langgraph.graph")
+          assert SqliteSaver is not None
+          PY
 
       - name: Run L2 verification
         shell: bash
@@ -54,4 +68,4 @@ jobs:
             exit 0
           fi
 
-          python -m pytest "${TEST_PATHS[@]}" --cov=src --cov-fail-under=80
+          .venv/bin/python -m pytest "${TEST_PATHS[@]}" --cov=src --cov-fail-under=80
