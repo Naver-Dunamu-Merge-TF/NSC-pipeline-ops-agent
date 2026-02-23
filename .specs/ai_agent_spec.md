@@ -97,7 +97,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
   pipeline_state + dq_status + exception_ledger 폴링 → 이상 감지?
   │
   ├─ 이상 없음 → heartbeat 로그 → END
-  ├─ 컷오프 지연 → [report_only] 경고 리포트만 → END
+  ├─ 컷오프 지연 → [report_only] 경고 리포트 로그만 기록 → END
   │
   └─ 파이프라인 실패/새 예외/CRITICAL DQ이상 ↓
 
@@ -126,7 +126,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 
 [interrupt] ← 운영자 승인 대기 (LangGraph interrupt)
   │
-  ├─ 거부 → [report_only] 리포트 저장 → END
+  ├─ 거부 → [report_only] 리포트 로그 기록 → END
   ├─ 수정 → action_plan 갱신 후 다시 propose
   ├─ 타임아웃(60분) → 에스컬레이션 상태 저장 → END
   │
@@ -157,7 +157,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 | triage | `action_plan.action == "skip_and_report"` | report_only → END | 실행 불필요 판단 시 리포트만 |
 | triage | 실행 가능한 조치 존재 | propose | 승인 요청 |
 | interrupt | approve | execute | 승인 → 실행 |
-| interrupt | reject | report_only → END | 거부 → 리포트 저장 |
+| interrupt | reject | report_only → END | 거부 → 리포트 로그 기록 |
 | interrupt | modify | propose | 파라미터 수정 후 재제안 |
 | interrupt | timeout (60분 무응답) | END | `final_status = "escalated"` 저장 + 에스컬레이션 알림 |
 | verify | 검증 통과 (`final_status = "resolved"`) | **postmortem** → END | **자동 포스트모템** — 장애 대응 전체 과정을 LLM으로 초안 생성 후 완료 |
@@ -238,7 +238,7 @@ class AgentState(TypedDict):
 |------|-----------------|-----------------|
 | **detect** | `incident_id`, `pipeline`, `run_id`, `detected_at`, `fingerprint` + 외부 테이블(`pipeline_state`, `dq_status`, `exception_ledger`) | `pipeline_states`, `detected_issues` |
 | **collect** | `pipeline`, `run_id`, `pipeline_states`, `detected_issues` | `exceptions`, `dq_tags`, `bad_records_summary` |
-| **report_only** | `detected_issues`, `pipeline_states` | `final_status = "reported"` |
+| **report_only** | `incident_id`, `pipeline`, `detected_at`, `detected_issues`, `pipeline_states` | 결정적 JSON 로그 출력(`report_artifact_storage="log_only"`) + `final_status = "reported"` |
 | **analyze** | `bad_records_summary`, `pipeline` | `dq_analysis` |
 | **triage** | `dq_analysis`(없으면 `None`), `exceptions`, `dq_tags`, `pipeline_states`, `pipeline`, `detected_at` | `triage_report`, `triage_report_raw`, `action_plan` |
 | **propose** | `triage_report`, `action_plan`, `incident_id`, `modified_params` | `approval_requested_ts` |
@@ -357,6 +357,14 @@ UTC 24시간 기본 윈도우 재평가 트리거(ADR-0008 rationale 연동):
 #### analyze와 triage를 분리하는 이유
 
 두 노드는 입력 소스와 관심사가 다르다. analyze는 `bad_records` + `contracts.py` 기반의 **데이터 품질 분석**을 담당하고, triage는 analyze 결과(없을 수 있음) + `pipeline_state` + `exception_ledger` + `dq_status`를 합쳐 **운영 판단과 조치 제안**을 담당한다. DQ 태그 전용 경로에서는 analyze를 스킵하고 triage가 규칙 기반 맥락만으로 `skip_and_report`를 제안할 수 있게 설계한다.
+
+#### report_only — 리포트 아티팩트 저장 매체 정책 (ADR-0012)
+
+`report_only`의 리포트 아티팩트 저장 매체는 ADR-0012(`docs/adr/0012-use-log-output-for-report-only-payload.md`)와 후속 정책(i-4oua) 기준으로 `log_only`로 고정한다.
+
+- 필수 동작: `incident_id`, `pipeline`, `detected_issues`, `major_status`를 포함한 결정적(JSON key 정렬) 로그를 1건 남긴다.
+- 상태 계약: AgentState에는 기존처럼 `final_status = "reported"`만 기록하고, 파일 경로/체크포인트 아티팩트 포인터는 쓰지 않는다.
+- 대안 정책: 파일 저장, 체크포인트 아티팩트 저장은 현재 범위에서 채택하지 않으며, 운영/감사 요구로 필요해질 경우 별도 이슈와 ADR 업데이트로 재결정한다.
 
 #### analyze — bad_records 원인 분석
 

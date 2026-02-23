@@ -35,6 +35,7 @@ def run(state: AgentState) -> dict[str, Any]:
     payload = {
         "incident_id": state.get("incident_id"),
         "pipeline": pipeline,
+        "report_artifact_storage": "log_only",
         "detected_issues": [_normalize_issue(issue) for issue in detected_issues],
         "major_status": {
             "detected_at_kst": time_utils.to_kst(detected_at) if detected_at else None,

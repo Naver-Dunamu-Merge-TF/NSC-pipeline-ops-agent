@@ -43,6 +43,7 @@ def test_report_only_sets_reported_status_and_logs_deterministic_payload(
     assert payload == {
         "incident_id": "inc-904x",
         "pipeline": "pipeline_silver",
+        "report_artifact_storage": "log_only",
         "detected_issues": [{"severity": "warning", "type": "cutoff_delay"}],
         "major_status": {
             "detected_at_kst": "2026-02-19 00:03 KST",
@@ -65,6 +66,7 @@ def test_report_only_handles_empty_issues_and_missing_pipeline_states(caplog) ->
     assert payload == {
         "incident_id": "inc-904x",
         "pipeline": "pipeline_silver",
+        "report_artifact_storage": "log_only",
         "detected_issues": [],
         "major_status": {
             "detected_at_kst": "2026-02-19 00:03 KST",
