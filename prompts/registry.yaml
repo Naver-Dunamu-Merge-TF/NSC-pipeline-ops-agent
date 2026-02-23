@@ -1,6 +1,16 @@
-dq01:
-  latest: v1.0
-ops01:
-  latest: v1.0
-pm01:
-  latest: v1.0
+prompts:
+  dq01_bad_records:
+    active_version: "v1.0"
+    model: "gpt-4o"
+    temperature: 0.2
+    description: "bad_records 위반 분석 + 수정 가이드 생성"
+  ops01_triage:
+    active_version: "v1.0"
+    model: "gpt-4o"
+    temperature: 0.1
+    description: "파이프라인 장애 트리아지 + 실행 가능 조치 제안"
+  pm01_postmortem:
+    active_version: "v1.0"
+    model: "gpt-4o"
+    temperature: 0.3
+    description: "장애 대응 완료 후 포스트모템 초안 생성"
