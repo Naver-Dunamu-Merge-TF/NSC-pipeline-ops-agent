@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 
 
 ACTION_PARAMETER_SCHEMA: dict[str, dict[str, type]] = {
@@ -18,6 +19,30 @@ ACTION_PARAMETER_SCHEMA: dict[str, dict[str, type]] = {
         "reason": str,
     },
 }
+
+ACTION_PLAN_VERSION_FIELD = "schema_version"
+_VERSION_DISCRIMINATOR_PATTERN = re.compile(r"^v([1-9][0-9]*)$")
+
+
+def classify_action_plan_version(action_plan: dict[str, object]) -> str:
+    raw_version = action_plan.get(ACTION_PLAN_VERSION_FIELD)
+    if raw_version is None:
+        return "v1"
+
+    if not isinstance(raw_version, str):
+        raise ValueError(
+            "action_plan.schema_version must be a string matching 'v<major>'"
+        )
+
+    match = _VERSION_DISCRIMINATOR_PATTERN.fullmatch(raw_version)
+    if match is None:
+        raise ValueError("action_plan.schema_version must match 'v<major>'")
+
+    major = int(match.group(1))
+    if major == 1:
+        raise ValueError("action_plan v1 must omit schema_version")
+
+    return "v2_plus"
 
 
 def validate_action_plan(action: str, parameters: dict[str, object]) -> None:

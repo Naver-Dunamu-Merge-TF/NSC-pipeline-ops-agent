@@ -503,7 +503,15 @@ execute 노드 검증 규칙(엄격 검증):
 계약 확장 정책:
 - `action_plan.parameters` 필드 확장은 스키마 버전 상향(v2+)으로만 허용한다.
 - v2+ 확장 전에는 반드시 하위 호환 영향 리뷰를 완료한다.
-- 스키마 버전 식별자(version discriminator)의 위치/필드/판별 방식은 TBD이며, 별도 스펙 이슈에서 명시되기 전에는 v2+ 확장을 롤아웃하지 않는다.
+- ActionPlan 버전 판별자 SSOT는 `action_plan.schema_version`(top-level)로 고정한다.
+- 판별 규칙: `schema_version`이 없으면 v1(legacy 무버전), `schema_version`이 `^v[1-9][0-9]*$`이면 버전 지정 입력으로 판별한다.
+- 허용값/정책: v1은 `schema_version` **미포함만 허용**(명시 `"v1"` 거부), `v2+`(`"v2"`, `"v3"`...)는 판별은 허용하되 execute에서 **실행 거부**한다(계약 미정 상태 고정).
+
+execute 노드 버전 판별자 검증 규칙:
+- `action_plan.schema_version` 타입이 문자열이 아니면 실행 거부.
+- `action_plan.schema_version`이 `^v[1-9][0-9]*$`를 만족하지 않으면 실행 거부.
+- `action_plan.schema_version == "v1"`이면 실행 거부(legacy v1은 무버전만 허용).
+- `action_plan.schema_version`이 `v2+`로 판별되면 실행 거부(판별 성공 + 실행 차단).
 
 `pipeline`/`run_mode` enum 값 정책:
 - 현재 버전(v1)에서는 `pipeline`, `run_mode`의 enum 값 집합을 이 문서에서 확정하지 않는다(TBD).

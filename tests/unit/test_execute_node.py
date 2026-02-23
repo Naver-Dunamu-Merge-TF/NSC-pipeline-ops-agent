@@ -69,6 +69,22 @@ def test_execute_requires_parameters_to_be_dict() -> None:
         execute.run(state)
 
 
+def test_execute_rejects_explicit_v1_schema_version() -> None:
+    state = _base_state()
+    state["action_plan"]["schema_version"] = "v1"
+
+    with pytest.raises(ValueError, match="omit schema_version"):
+        execute.run(state)
+
+
+def test_execute_rejects_v2_plus_action_plan_until_contract_is_extended() -> None:
+    state = _base_state()
+    state["action_plan"]["schema_version"] = "v2"
+
+    with pytest.raises(ValueError, match=r"v2\+ ActionPlan is not supported"):
+        execute.run(state)
+
+
 def test_execute_requires_pipeline_in_state() -> None:
     state = _base_state()
     del state["pipeline"]

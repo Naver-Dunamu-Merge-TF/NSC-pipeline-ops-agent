@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from graph.state import AgentState
-from orchestrator.action_plan import validate_action_plan
+from orchestrator.action_plan import classify_action_plan_version, validate_action_plan
 from tools import databricks_jobs
 
 READ_FIELDS = ("action_plan", "human_decision", "pipeline")
@@ -16,6 +16,12 @@ def run(state: AgentState) -> dict[str, Any]:
         raise ValueError("action_plan is required")
     if not isinstance(action_plan, dict):
         raise ValueError("action_plan must be a dict")
+
+    action_plan_version = classify_action_plan_version(action_plan)
+    if action_plan_version == "v2_plus":
+        raise ValueError(
+            "v2+ ActionPlan is not supported until v2+ contract is defined"
+        )
 
     if "action" not in action_plan:
         raise ValueError("action_plan.action is required")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestrator.action_plan import validate_action_plan
+from orchestrator.action_plan import classify_action_plan_version, validate_action_plan
 
 
 def test_validate_action_plan_rejects_unknown_action() -> None:
@@ -76,3 +76,60 @@ def test_validate_action_plan_accepts_skip_and_report_schema() -> None:
             "reason": "source is still stale",
         },
     )
+
+
+def test_classify_action_plan_version_defaults_to_v1_without_discriminator() -> None:
+    version = classify_action_plan_version(
+        {
+            "action": "skip_and_report",
+            "parameters": {
+                "pipeline": "silver_orders",
+                "reason": "source is still stale",
+            },
+        }
+    )
+
+    assert version == "v1"
+
+
+def test_classify_action_plan_version_detects_v2_plus() -> None:
+    version = classify_action_plan_version(
+        {
+            "schema_version": "v2",
+            "action": "skip_and_report",
+            "parameters": {
+                "pipeline": "silver_orders",
+                "reason": "source is still stale",
+            },
+        }
+    )
+
+    assert version == "v2_plus"
+
+
+def test_classify_action_plan_version_rejects_explicit_v1_discriminator() -> None:
+    with pytest.raises(ValueError, match="omit schema_version"):
+        classify_action_plan_version(
+            {
+                "schema_version": "v1",
+                "action": "skip_and_report",
+                "parameters": {
+                    "pipeline": "silver_orders",
+                    "reason": "source is still stale",
+                },
+            }
+        )
+
+
+def test_classify_action_plan_version_rejects_invalid_discriminator_format() -> None:
+    with pytest.raises(ValueError, match="must match"):
+        classify_action_plan_version(
+            {
+                "schema_version": "2",
+                "action": "skip_and_report",
+                "parameters": {
+                    "pipeline": "silver_orders",
+                    "reason": "source is still stale",
+                },
+            }
+        )
