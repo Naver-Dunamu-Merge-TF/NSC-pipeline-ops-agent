@@ -574,6 +574,13 @@ execute 노드 버전 판별자 검증 규칙:
 - `action_plan.schema_version == "v1"`이면 실행 거부(legacy v1은 무버전만 허용).
 - `action_plan.schema_version`이 `v2+`로 판별되면 위 v2+ 계약(required/optional + top-level 필드 제한)을 검증한 뒤 실행을 계속한다.
 
+v1 엄격 전환(향후) 기준/절차(ADR-0013 연동):
+- 기본 정책: v1(무버전)은 호환성 보호를 위해 완화 상위 계약을 유지한다.
+- 전환 트리거(3축 동시 충족): (1) 호환성 영향 관리 가능(최근 14일 v1 비중 저하 또는 호출 주체별 이행 책임 확정), (2) v1 완화로 인한 드리프트/운영 혼선 반복 관측, (3) 호출 경로별 마이그레이션 준비 완료.
+- 관측 지표: `execute.action_plan.version` 분포(v1/v2+), v1 미정의 상위 필드 유입 건수, `schema_version="v1"` 명시 거부 건수.
+- 적용 절차: 최소 2주 관측 -> 전환 체크리스트/회귀 테스트 통과 -> staging strict 적용 -> production strict 적용.
+- 롤백 조건: 전환 후 24시간 내 실행 실패율 급증 또는 MTTR 악화 시 v1 완화 정책으로 즉시 복귀.
+
 `pipeline`/`run_mode` enum 값 정책:
 - 현재 버전(v1)에서는 `pipeline`, `run_mode`의 enum 값 집합을 이 문서에서 확정하지 않는다(TBD).
 - enum 값 SSOT는 별도 스펙 이슈에서 명시하며, 그 전까지 execute는 키/필수성/타입/포맷만 검증한다.
