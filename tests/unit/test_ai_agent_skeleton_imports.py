@@ -13,7 +13,13 @@ NODE_EXPECTATIONS = {
         ("exceptions", "dq_tags", "bad_records_summary"),
     ),
     "report_only": (
-        ("detected_issues", "pipeline_states"),
+        (
+            "incident_id",
+            "pipeline",
+            "detected_at",
+            "detected_issues",
+            "pipeline_states",
+        ),
         ("final_status",),
     ),
     "analyze": (
