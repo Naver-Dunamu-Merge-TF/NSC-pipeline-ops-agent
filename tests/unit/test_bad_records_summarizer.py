@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import json
 
-from tools.bad_records_summarizer import summarize_bad_records
+from tools.bad_records_summarizer import (
+    MAX_FIELD_LENGTH,
+    MAX_REASON_LENGTH,
+    MAX_RECORD_JSON_LENGTH,
+    MAX_SAMPLES_PER_TYPE,
+    MAX_TABLE_LENGTH,
+    MAX_TYPE_COUNT,
+    summarize_bad_records,
+)
 
 
 def test_summarize_bad_records_with_zero_records() -> None:
@@ -131,3 +139,46 @@ def test_summarize_bad_records_does_not_merge_types_with_truncated_reason() -> N
     assert result["total_records"] == 2
     assert result["type_count"] == 2
     assert sorted(violation["count"] for violation in result["types"]) == [1, 1]
+
+
+def test_summarize_bad_records_large_volume_serialized_size_is_bounded() -> None:
+    records: list[dict[str, str]] = []
+
+    for idx in range(12_500):
+        type_idx = idx % 200
+        records.append(
+            {
+                "source_table": f"table_{type_idx}_" + ("s" * 200),
+                "reason": json.dumps(
+                    {
+                        "field": f"field_{type_idx}_" + ("f" * 200),
+                        "detail": f"violation_{type_idx}_" + ("r" * 400),
+                    },
+                    ensure_ascii=False,
+                ),
+                "record_json": json.dumps(
+                    {
+                        "index": idx,
+                        "payload": "x" * 2000,
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+
+    result = summarize_bad_records(records)
+    serialized = json.dumps(result, ensure_ascii=False)
+
+    assert result["total_records"] == 12_500
+    assert result["type_count"] == MAX_TYPE_COUNT
+    assert result["types_truncated"] is True
+
+    for violation in result["types"]:
+        assert len(violation["samples"]) <= MAX_SAMPLES_PER_TYPE
+        assert len(violation["source_table"]) <= MAX_TABLE_LENGTH
+        assert len(violation["field"]) <= MAX_FIELD_LENGTH
+        assert len(violation["reason"]) <= MAX_REASON_LENGTH
+        for sample in violation["samples"]:
+            assert len(sample["record_json"]) <= MAX_RECORD_JSON_LENGTH
+
+    assert len(serialized.encode("utf-8")) <= 160_000

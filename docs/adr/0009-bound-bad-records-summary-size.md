@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
@@ -17,6 +17,17 @@ DEV-015에서는 실패 레코드 요약(`bad_records_summary`)을 응답/로그
 ## Decision
 
 `bad_records_summary`는 타입 수 상한, 타입별 샘플 수 상한, 문자열 필드 길이 상한을 하드 캡으로 고정하고 초과분은 정해진 절단 규칙으로 처리하는 방식으로 결정한다.
+
+고정 상한값:
+
+- 타입 수 상한: 50
+- 타입별 샘플 수 상한: 10
+- 문자열 필드 상한: `source_table=80`, `field=80`, `reason=160`, `record_json=240`
+
+절단/결정성 규칙:
+
+- 문자열이 상한을 초과하면 잘린 문자열 뒤에 `...`를 붙인다(상한이 3 이하인 경우 접미사 없이 단순 절단).
+- 유형 정렬 순서는 `count desc -> source_table asc -> field asc -> reason asc`로 고정한다.
 
 ## Rationale
 
