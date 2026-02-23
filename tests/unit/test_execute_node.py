@@ -50,11 +50,41 @@ def test_execute_requires_action_key_in_action_plan() -> None:
         execute.run(state)
 
 
+def test_execute_requires_action_key_in_v2_plus_action_plan() -> None:
+    state = _base_state()
+    state["action_plan"] = {
+        "schema_version": "v2",
+        "parameters": {
+            "pipeline": "pipeline_silver",
+            "reason": "upstream stale source",
+        },
+    }
+
+    with pytest.raises(
+        ValueError, match=r"Missing required action_plan fields for v2\+: action"
+    ):
+        execute.run(state)
+
+
 def test_execute_requires_parameters_key_in_action_plan() -> None:
     state = _base_state()
     state["action_plan"] = {"action": "skip_and_report"}
 
     with pytest.raises(ValueError, match="action_plan.parameters is required"):
+        execute.run(state)
+
+
+def test_execute_requires_parameters_key_in_v2_plus_action_plan() -> None:
+    state = _base_state()
+    state["action_plan"] = {
+        "schema_version": "v2",
+        "action": "skip_and_report",
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"Missing required action_plan fields for v2\+: parameters",
+    ):
         execute.run(state)
 
 
@@ -77,11 +107,57 @@ def test_execute_rejects_explicit_v1_schema_version() -> None:
         execute.run(state)
 
 
-def test_execute_rejects_v2_plus_action_plan_until_contract_is_extended() -> None:
+def test_execute_accepts_v2_plus_action_plan_under_contract() -> None:
     state = _base_state()
     state["action_plan"]["schema_version"] = "v2"
 
-    with pytest.raises(ValueError, match=r"v2\+ ActionPlan is not supported"):
+    result = execute.run(state)
+
+    assert result["pre_execute_table_version"] == {"pipeline": "pipeline_silver"}
+    assert result["execution_result"] == {
+        "status": "skipped",
+        "action": "skip_and_report",
+        "reason": "upstream stale source",
+    }
+
+
+def test_execute_rejects_unknown_top_level_v2_plus_contract_field() -> None:
+    state = _base_state()
+    state["action_plan"]["schema_version"] = "v2"
+    state["action_plan"]["operator_note"] = "not in contract"
+
+    with pytest.raises(ValueError, match="Unexpected action_plan fields"):
+        execute.run(state)
+
+
+def test_execute_v2_plus_rejects_unknown_action_same_as_v1() -> None:
+    state = _base_state()
+    state["action_plan"] = {
+        "schema_version": "v2",
+        "action": "backfill_sliver",
+        "parameters": {
+            "pipeline": "pipeline_silver",
+            "date_kst": "2026-02-23",
+            "run_mode": "full",
+        },
+    }
+
+    with pytest.raises(ValueError, match="Allowed actions"):
+        execute.run(state)
+
+
+def test_execute_v2_plus_rejects_missing_required_parameter_same_as_v1() -> None:
+    state = _base_state()
+    state["action_plan"] = {
+        "schema_version": "v2",
+        "action": "backfill_silver",
+        "parameters": {
+            "pipeline": "pipeline_silver",
+            "date_kst": "2026-02-23",
+        },
+    }
+
+    with pytest.raises(ValueError, match="Missing required parameters"):
         execute.run(state)
 
 

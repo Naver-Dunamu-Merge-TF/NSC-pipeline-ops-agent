@@ -554,13 +554,17 @@ execute 노드 검증 규칙(엄격 검증):
 - v2+ 확장 전에는 반드시 하위 호환 영향 리뷰를 완료한다.
 - ActionPlan 버전 판별자 SSOT는 `action_plan.schema_version`(top-level)로 고정한다.
 - 판별 규칙: `schema_version`이 없으면 v1(legacy 무버전), `schema_version`이 `^v[1-9][0-9]*$`이면 버전 지정 입력으로 판별한다.
-- 허용값/정책: v1은 `schema_version` **미포함만 허용**(명시 `"v1"` 거부), `v2+`(`"v2"`, `"v3"`...)는 판별은 허용하되 execute에서 **실행 거부**한다(계약 미정 상태 고정).
+- 하위호환 정책: v1은 기존처럼 `schema_version` **미포함만 허용**(명시 `"v1"` 거부)하며, action/parameters 검증 규칙은 v2+에서도 동일하게 유지한다.
+- v2+ 계약(required/optional):
+  - required: `schema_version`, `action`, `parameters`
+  - optional: `expected_outcome`(string), `caveats`(list[string])
+  - execute는 v2+도 허용하되, 위 계약 밖의 top-level 필드가 있으면 실행 거부한다.
 
 execute 노드 버전 판별자 검증 규칙:
 - `action_plan.schema_version` 타입이 문자열이 아니면 실행 거부.
 - `action_plan.schema_version`이 `^v[1-9][0-9]*$`를 만족하지 않으면 실행 거부.
 - `action_plan.schema_version == "v1"`이면 실행 거부(legacy v1은 무버전만 허용).
-- `action_plan.schema_version`이 `v2+`로 판별되면 실행 거부(판별 성공 + 실행 차단).
+- `action_plan.schema_version`이 `v2+`로 판별되면 위 v2+ 계약(required/optional + top-level 필드 제한)을 검증한 뒤 실행을 계속한다.
 
 `pipeline`/`run_mode` enum 값 정책:
 - 현재 버전(v1)에서는 `pipeline`, `run_mode`의 enum 값 집합을 이 문서에서 확정하지 않는다(TBD).
