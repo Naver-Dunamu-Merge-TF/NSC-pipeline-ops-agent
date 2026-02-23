@@ -127,3 +127,27 @@ def test_collect_pipeline_context_uses_24h_utc_window(
             "result_shape": "list",
         },
     }
+
+
+def test_collect_pipeline_context_query_specs_keep_contract_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDatetime:
+        @staticmethod
+        def now(*, tz):
+            assert tz is data_collector.UTC
+            return real_datetime(2026, 2, 23, 12, 0, 0, tzinfo=data_collector.UTC)
+
+    monkeypatch.setattr(data_collector, "datetime", FrozenDatetime)
+    context = collect_pipeline_context("pipeline_silver", "run-2026-02-23-001")
+
+    assert set(context.keys()) == {"pipeline_state", "dq_status", "exception_ledger"}
+    for query_spec in context.values():
+        assert set(query_spec.keys()) == {"sql", "params", "result_shape"}
+        assert isinstance(query_spec["sql"], str)
+        assert isinstance(query_spec["params"], dict)
+        assert query_spec["result_shape"] in {"single", "list"}
+
+    assert context["pipeline_state"]["result_shape"] == "single"
+    assert context["dq_status"]["result_shape"] == "list"
+    assert context["exception_ledger"]["result_shape"] == "list"

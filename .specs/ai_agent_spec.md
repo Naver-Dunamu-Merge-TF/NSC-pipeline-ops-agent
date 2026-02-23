@@ -301,6 +301,28 @@ SSOT는 [.specs/data_contract.md](./data_contract.md)입니다.
 
 `silver.bad_records.reason` 포맷은 **현재 가정 + 확인 필요** 상태로 유지되며, `field` 추출이 불확실한 경우 `field="unknown"` 원칙을 따른다.
 
+### 2.2.3 detect/collect query-spec 계약 (ADR-0008 정합)
+
+`tools/data_collector.py`의 query builder는 모두 `{sql, params, result_shape}` 계약으로 반환한다.
+
+| 함수 | 용도 | result_shape | 기본 필터 |
+|------|------|--------------|-----------|
+| `build_pipeline_state_query(pipeline)` | 파이프라인 상태 조회 | `single` | `pipeline_name` |
+| `build_dq_status_query(run_id, window_start_ts)` | DQ 태그 조회 | `list` | `run_id` + `window_end_ts >= window_start_ts` |
+| `build_exception_ledger_query(run_id, window_start_ts)` | 예외 원장 조회 | `list` | `domain='dq'` + `run_id` + `generated_at >= window_start_ts` |
+
+`collect_pipeline_context(pipeline, run_id)`는 위 3개 query-spec을 조합해 collect 경로 입력으로 반환하며, `dq_status`/`exception_ledger`의 기본 `window_start_ts`는 **UTC 기준 최근 24시간**으로 계산한다.
+
+UTC 24시간 기본 윈도우 재평가 트리거(ADR-0008 rationale 연동):
+
+- **과다 조회**: 단일 incident에서 `dq_status` + `exception_ledger` 조회 합계가 10,000건 초과 상태로 반복(1일 2회 이상)되거나 collect 처리 지연이 반복될 때
+- **과소 조회**: 운영자 확인 기준으로 24시간 밖 누락 사례가 1회라도 발생하거나, 최근 7일 대비 이슈가 있는데 24시간 조회가 연속 3회 비정상적으로 비는 패턴이 확인될 때
+
+재평가 시 우선 대응:
+
+- 과다 조회: 기본 윈도우 12시간 축소안 + 파티션/추가 필터 검토
+- 과소 조회: 기본 윈도우 48시간 확장안 + run_id 보강 조회 검토
+
 ### 2.3 감지 트리거
 
 에이전트는 파이프라인 스케줄에 맞춰 예상 완료 시각 이후에 폴링한다. 일배치 파이프라인은 배치 완료 시점에만 체크하고, 마이크로배치(`pipeline_a`)만 주기적으로 폴링한다.
