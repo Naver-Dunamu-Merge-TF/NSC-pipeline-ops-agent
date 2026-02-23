@@ -1,0 +1,5 @@
+id: ops01_triage
+version: v1.0
+model: gpt-4o
+temperature: 0.1
+description: 파이프라인 장애 트리아지 + 실행 가능 조치 제안

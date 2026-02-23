@@ -1,0 +1,5 @@
+id: dq01_bad_records
+version: v1.0
+model: gpt-4o
+temperature: 0.2
+description: bad_records 위반 분석 + 수정 가이드 생성
