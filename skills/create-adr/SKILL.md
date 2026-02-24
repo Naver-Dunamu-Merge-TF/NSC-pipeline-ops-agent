@@ -107,13 +107,5 @@ After writing the ADR file:
 - [ ] Record the ADR file path in the current issue handoff/update note
 - [ ] Note the affected `.specs/` files (if any) in the same handoff/update note
 - [ ] Confirm `## Created At` exists and follows `YYYY-MM-DD HH:mm KST`
-- [ ] Run ADR review using a subagent
-- [ ] If ADR review returns blocking findings, fix the ADR and run re-review until blocking findings are cleared
 - [ ] Create a follow-up Sudocode Issue via MCP and link it from the current issue (mandatory for every ADR)
 
----
-
-## 7. ADR Review Timing
-
-- Run ADR review immediately after ADR creation and follow-up issue linking.
-- Complete ADR fixes before moving the current issue to `needs_review`.
