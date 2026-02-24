@@ -2,8 +2,8 @@
 name: create-adr
 description: >
   ADR (Architecture Decision Record) authoring workflow. Use when a design
-  decision needs to be recorded in docs/adr/NNNN-title.md. Covers numbering,
-  file naming, section templates, and post-ADR checklist.
+  decision needs to be recorded in docs/adr/YYYYMMDD-HHMM-title.md. Covers
+  identifier assignment, file naming, section templates, and post-ADR checklist.
   ADR trigger criteria are defined in skills/create-pr/SKILL.md §3.
 ---
 
