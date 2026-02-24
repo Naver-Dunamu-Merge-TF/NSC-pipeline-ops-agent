@@ -1,0 +1,16 @@
+{
+  "pipeline": "pipeline_silver",
+  "run_id": "dev-smoke-001",
+  "detected_issues": [
+    {
+      "metric": "dq_critical_count",
+      "severity": "CRITICAL",
+      "value": 2
+    },
+    {
+      "metric": "latency_minutes",
+      "severity": "WARN",
+      "value": 95
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "pipeline": "pipeline_silver",
+  "run_id": "staging-smoke-001",
+  "detected_issues": [
+    {
+      "metric": "exception_count",
+      "severity": "CRITICAL",
+      "value": 1
+    },
+    {
+      "metric": "dq_warn_count",
+      "severity": "WARN",
+      "value": 6
+    }
+  ]
+}
