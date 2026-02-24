@@ -217,3 +217,5 @@ skills/supabase-postgres-best-practices
 
 # Local git worktrees
 .worktrees/
+
+.secrets/

@@ -1,0 +1,13 @@
+{
+  "worktree": {
+    "worktreeStoragePath": ".sudocode/worktrees",
+    "autoCreateBranches": true,
+    "autoDeleteBranches": false,
+    "enableSparseCheckout": false,
+    "branchPrefix": "sudocode",
+    "cleanupOrphanedWorktreesOnStartup": false
+  },
+  "editor": {
+    "editorType": "vs-code"
+  }
+}
