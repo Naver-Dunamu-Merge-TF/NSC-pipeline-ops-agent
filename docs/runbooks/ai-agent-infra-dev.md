@@ -186,24 +186,20 @@ Pass criteria:
 Run this from a host inside the staging VNet (for example AKS jumpbox).
 
 ```bash
-export LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default}
-kubectl get service langfuse-internal -n "$LANGFUSE_NAMESPACE" -o jsonpath='{.spec.type}{"\n"}'
-kubectl get ingress -n "$LANGFUSE_NAMESPACE" -l app=langfuse -o name
-kubectl port-forward -n "$LANGFUSE_NAMESPACE" service/langfuse-internal 3000:3000
-```
-
-In another terminal on the same host:
-
-```bash
-HTTP_CODE="$(curl -sS -o /tmp/langfuse-ui-smoke.html -w '%{http_code}' http://127.0.0.1:3000)"
-echo "HTTP ${HTTP_CODE}"
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} bash scripts/infra/smoke_langfuse_internal_ui.sh
 ```
 
 Success criteria:
 
-- Service type output is `ClusterIP`.
-- Ingress query prints no resources for `app=langfuse`.
-- Printed status is `HTTP 200` or `HTTP 302`, and UI login page is reachable at `http://127.0.0.1:3000`.
+- Script exits `0`.
+- JSON-line evidence includes `utc`, `namespace`, `http_code`, `response_sha256`, and sanitized `response_summary`.
+- `http_code` is `200` or `302`.
+
+Optional file evidence capture:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SMOKE_ARTIFACT_FILE=/tmp/langfuse-ui-smoke.jsonl bash scripts/infra/smoke_langfuse_internal_ui.sh
+```
 
 ### Trace persistence checklist
 

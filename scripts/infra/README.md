@@ -21,6 +21,7 @@ This directory contains a minimal Azure CLI provisioning script for AI agent inf
 - `ai_agent_infra_dev.env.example`: Example environment variables required by the apply script.
 - `ai_agent_infra_dev_apply.sh`: Idempotent script that ensures required Azure resources exist.
 - `verify_ai_agent_infra_dev.sh`: Verification script that checks expected dev infra resources and hardening state.
+- `smoke_langfuse_internal_ui.sh`: Non-interactive staging VNet internal smoke script for LangFuse UI via `kubectl port-forward`.
 
 ## What the script ensures
 
@@ -162,3 +163,24 @@ Rollback:
 kubectl rollout undo deployment/langfuse -n "${LANGFUSE_NAMESPACE:-default}"
 kubectl rollout status deployment/langfuse -n "${LANGFUSE_NAMESPACE:-default}"
 ```
+
+### Staging VNet internal UI smoke (non-interactive)
+
+Run from a host inside the staging VNet (for example AKS jumpbox):
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} bash scripts/infra/smoke_langfuse_internal_ui.sh
+```
+
+Optional evidence file output (JSON line is still printed to stdout):
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SMOKE_ARTIFACT_FILE=/tmp/langfuse-ui-smoke.jsonl bash scripts/infra/smoke_langfuse_internal_ui.sh
+```
+
+Script behavior:
+
+- Manages `kubectl port-forward` lifecycle internally with cleanup trap.
+- Treats HTTP `200` or `302` as success and exits `0`; all other responses exit non-zero.
+- Emits reproducible evidence (`utc`, `namespace`, `http_code`, `response_sha256`, sanitized `response_summary`) as a JSON line.
+- Applies masking/exclusion rules so token/cookie/set-cookie markers are not emitted in evidence summary.
