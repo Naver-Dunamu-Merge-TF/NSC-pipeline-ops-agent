@@ -7,7 +7,7 @@ from typing import Any
 def build_pipeline_state_query(pipeline: str) -> dict[str, Any]:
     return {
         "sql": (
-            "SELECT pipeline_name, status, last_success_ts, last_processed_end, last_run_id "
+            "SELECT pipeline_name, CAST(NULL AS STRING) AS status, last_success_ts, last_processed_end, last_run_id "
             "FROM gold.pipeline_state "
             "WHERE pipeline_name = %(pipeline_name)s"
         ),
