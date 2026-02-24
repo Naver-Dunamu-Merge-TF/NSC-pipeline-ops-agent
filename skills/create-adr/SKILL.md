@@ -1,10 +1,6 @@
 ---
 name: create-adr
-description: >
-  ADR (Architecture Decision Record) authoring workflow. Use when a design
-  decision needs to be recorded in docs/adr/YYYYMMDD-HHMM-title.md. Covers
-  identifier assignment, file naming, section templates, and post-ADR checklist.
-  ADR trigger criteria are defined in skills/create-pr/SKILL.md §3.
+description: "ADR (Architecture Decision Record) authoring workflow. Use when a design decision needs to be recorded in docs/adr/YYYYMMDD-HHMM-title.md. Covers identifier assignment, file naming, section templates, and post-ADR checklist. ADR trigger criteria are defined in skills/create-pr/SKILL.md §3."
 ---
 
 # Create ADR Skill
@@ -27,25 +23,26 @@ When in doubt, write the ADR. It is cheaper to document than to re-litigate late
 
 ---
 
-## 2. ADR Number Assignment
+## 2. ADR Identifier Assignment
 
-Run this Bash snippet to calculate the next ADR number.
+Run this one-liner to get the current KST timestamp as the ADR identifier.
 
 ```bash
-LAST=$(ls docs/adr/[0-9][0-9][0-9][0-9]-*.md 2>/dev/null | sort | tail -1)
-LAST=${LAST##*/}
-LAST=${LAST%%-*}
-NEXT=$(printf '%04d' $((10#${LAST:-0} + 1)))
-# NEXT is the zero-padded next ADR number (e.g., "0005")
+NEXT=$(TZ=Asia/Seoul date '+%Y%m%d-%H%M')
+# NEXT is the KST timestamp identifier (e.g., "20260225-1430")
 ```
+
+Two agents creating an ADR within the same minute would produce the same identifier — an acceptable risk given how rarely ADRs are written simultaneously.
 
 ---
 
 ## 3. File Naming Convention
 
 ```
-docs/adr/NNNN-<kebab-case-title>.md
+docs/adr/YYYYMMDD-HHMM-<kebab-case-title>.md
 ```
+
+Example: `docs/adr/20260225-1430-reject-polling-in-favor-of-event-driven.md`
 
 - Use a decision verb in the title (e.g., `use-langgraph-for-agent-state`, `reject-polling-in-favor-of-event-driven`)
 - Keep the title concise (3–6 words)
@@ -59,7 +56,7 @@ Keep the header label exactly as `Created At` (English only).
 `Created At` must use Korean format: `YYYY-MM-DD HH:mm KST`.
 
 ```markdown
-# ADR-NNNN: <title>
+# ADR-YYYYMMDD-HHMM: <title>
 
 ## Created At
 
