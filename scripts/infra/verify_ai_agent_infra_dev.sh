@@ -286,6 +286,20 @@ main() {
       "ClusterIP" \
       "$langfuse_service_type"
 
+    local langfuse_service_lb_ingress
+    langfuse_service_lb_ingress="$(kubectl get service langfuse-internal -n "$LANGFUSE_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress}' 2>/dev/null || true)"
+    check_value_equals \
+      "LangFuse internal service has no LoadBalancer ingress" \
+      "" \
+      "$langfuse_service_lb_ingress"
+
+    local langfuse_ingress_resources
+    langfuse_ingress_resources="$(kubectl get ingress -n "$LANGFUSE_NAMESPACE" -l app=langfuse -o name 2>/dev/null || true)"
+    check_value_equals \
+      "No Ingress resources expose LangFuse in namespace ${LANGFUSE_NAMESPACE}" \
+      "" \
+      "$langfuse_ingress_resources"
+
     check_resource_exists \
       "LangFuse runtime Secret exists in AKS namespace ${LANGFUSE_NAMESPACE} (${LANGFUSE_SECRET_NAME})" \
       kubectl get secret "$LANGFUSE_SECRET_NAME" -n "$LANGFUSE_NAMESPACE"

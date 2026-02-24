@@ -138,6 +138,30 @@ Evidence/log recording expectations:
 - [ ] LangFuse runtime reaches PostgreSQL via private endpoint only.
 - [ ] No required runtime dependency succeeds via public endpoint fallback.
 
+### Staging LangFuse UI smoke (internal-only)
+
+Run this from a host inside the staging VNet (for example AKS jumpbox).
+
+```bash
+export LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default}
+kubectl get service langfuse-internal -n "$LANGFUSE_NAMESPACE" -o jsonpath='{.spec.type}{"\n"}'
+kubectl get ingress -n "$LANGFUSE_NAMESPACE" -l app=langfuse -o name
+kubectl port-forward -n "$LANGFUSE_NAMESPACE" service/langfuse-internal 3000:3000
+```
+
+In another terminal on the same host:
+
+```bash
+HTTP_CODE="$(curl -sS -o /tmp/langfuse-ui-smoke.html -w '%{http_code}' http://127.0.0.1:3000)"
+echo "HTTP ${HTTP_CODE}"
+```
+
+Success criteria:
+
+- Service type output is `ClusterIP`.
+- Ingress query prints no resources for `app=langfuse`.
+- Printed status is `HTTP 200` or `HTTP 302`, and UI login page is reachable at `http://127.0.0.1:3000`.
+
 ### Trace persistence checklist
 
 - [ ] Write trace data through runtime path.

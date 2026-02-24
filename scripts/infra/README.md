@@ -116,11 +116,45 @@ export LANGFUSE_ROLLOUT_TIMEOUT=120s
 bash scripts/infra/deploy_langfuse_internal.sh
 ```
 
+### ACR image preparation (build/push)
+
+Use one of the following paths and keep the resolved image tag in deployment evidence.
+
+Option A - build and push with ACR Tasks:
+
+```bash
+export ACR_NAME=your-acr-name
+export LANGFUSE_IMAGE="${ACR_NAME}.azurecr.io/langfuse:$(date -u +%Y%m%d%H%M%S)"
+az acr build --registry "${ACR_NAME}" --image "${LANGFUSE_IMAGE#${ACR_NAME}.azurecr.io/}" https://github.com/langfuse/langfuse.git
+az acr repository show --name "${ACR_NAME}" --image "${LANGFUSE_IMAGE#${ACR_NAME}.azurecr.io/}"
+```
+
+Option B - use a pre-validated image tag:
+
+```bash
+export LANGFUSE_IMAGE=your-acr-name.azurecr.io/langfuse:<validated-tag>
+az acr repository show --name your-acr-name --image "langfuse:<validated-tag>"
+```
+
+After either path, run `bash scripts/infra/deploy_langfuse_internal.sh` with `LANGFUSE_IMAGE` exported.
+
 Rollout check:
 
 ```bash
 kubectl rollout status deployment/langfuse -n "${LANGFUSE_NAMESPACE:-default}" --timeout="${LANGFUSE_ROLLOUT_TIMEOUT:-120s}"
 ```
+
+Internal-only exposure checks:
+
+```bash
+kubectl get service langfuse-internal -n "${LANGFUSE_NAMESPACE:-default}" -o wide
+kubectl get ingress -n "${LANGFUSE_NAMESPACE:-default}" -l app=langfuse
+```
+
+Expected:
+
+- Service type remains `ClusterIP`.
+- No ingress exists for `app=langfuse`.
 
 Rollback:
 
