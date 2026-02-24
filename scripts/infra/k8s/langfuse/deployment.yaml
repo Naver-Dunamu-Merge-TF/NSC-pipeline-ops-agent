@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langfuse
+  labels:
+    app: langfuse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langfuse
+  template:
+    metadata:
+      labels:
+        app: langfuse
+    spec:
+      containers:
+        - name: langfuse
+          image: ${LANGFUSE_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: langfuse-public-key
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: langfuse-secret-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: database-url
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: azure-openai-api-key
+            - name: OPENAI_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: azure-openai-endpoint
+            - name: OPENAI_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: ${LANGFUSE_SECRET_NAME}
+                  key: azure-openai-deployment
