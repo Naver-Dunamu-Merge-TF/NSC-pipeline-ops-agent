@@ -1,0 +1,20 @@
+command: command -v az && az version --output json
+exit_code: 0
+utc_timestamp: 2026-02-24T16:52:52Z
+--- output ---
+/usr/bin/az
+{
+  "azure-cli": "2.83.0",
+  "azure-cli-core": "2.83.0",
+  "azure-cli-telemetry": "1.1.0",
+  "extensions": {
+    "application-insights": "1.2.3",
+    "azure-firewall": "2.0.1",
+    "bastion": "1.4.3",
+    "databricks": "1.2.1",
+    "log-analytics": "1.0.0b1",
+    "monitor-control-service": "1.2.0",
+    "scheduled-query": "1.0.0b2",
+    "ssh": "2.0.6"
+  }
+}

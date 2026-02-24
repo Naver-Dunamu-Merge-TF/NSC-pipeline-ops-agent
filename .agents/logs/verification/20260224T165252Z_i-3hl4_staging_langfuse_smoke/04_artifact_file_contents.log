@@ -1,0 +1,7 @@
+command: python3 read artifact file contents from .agents/logs/verification/20260224T165252Z_i-3hl4_staging_langfuse_smoke/langfuse-ui-smoke.jsonl
+exit_code: 0
+utc_timestamp: 2026-02-24T16:58:58Z
+--- output ---
+{"event":"langfuse_ui_smoke","utc":"2026-02-24T16:52:53Z","namespace":"default","service":"langfuse-internal","http_code":200,"result":"pass","response_sha256":"fdb3080fdf18c682848f1d9b0d05f8b67b586e46a3483b18e67906d2f1be5faf","response_summary":"<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" /> <meta name=\"viewport\" content=\"widt"}
+{"event":"langfuse_ui_smoke","utc":"2026-02-24T16:54:39Z","namespace":"default","service":"langfuse-internal","http_code":200,"result":"pass","response_sha256":"fdb3080fdf18c682848f1d9b0d05f8b67b586e46a3483b18e67906d2f1be5faf","response_summary":"<!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\" /> <link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" /> <meta name=\"viewport\" content=\"widt"}
+

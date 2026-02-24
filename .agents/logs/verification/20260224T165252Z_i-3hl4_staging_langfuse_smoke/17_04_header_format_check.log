@@ -1,0 +1,7 @@
+command: python3 verify 04_artifact_file_contents.log header keys command/exit_code/utc_timestamp
+exit_code: 0
+utc_timestamp: 2026-02-24T17:02:50Z
+--- output ---
+line1_command:True
+line2_exit_code:True
+line3_utc_timestamp:True

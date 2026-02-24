@@ -1,0 +1,6 @@
+command: git status --short proves .agents verification logs are trackable
+exit_code: 0
+utc_timestamp: 2026-02-24T16:59:28Z
+--- output ---
+?? .agents/logs/verification/20260224T165252Z_i-3hl4_staging_langfuse_smoke/12_smoke_stdout_default_rerun.log
+trackable:true

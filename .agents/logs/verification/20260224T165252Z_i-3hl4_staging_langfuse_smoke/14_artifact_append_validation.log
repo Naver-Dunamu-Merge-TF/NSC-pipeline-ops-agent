@@ -1,0 +1,8 @@
+command: python3 artifact append count and latest-line parity check
+exit_code: 0
+utc_timestamp: 2026-02-24T16:54:46Z
+--- output ---
+artifact_line_count:2
+rerun_stdout_found:True
+latest_line_matches_rerun_stdout:True
+latest_http_code:200

@@ -201,6 +201,16 @@ Optional file evidence capture:
 LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SMOKE_ARTIFACT_FILE=/tmp/langfuse-ui-smoke.jsonl bash scripts/infra/smoke_langfuse_internal_ui.sh
 ```
 
+Latest staging evidence (2026-02-24 UTC):
+
+- Evidence directory: `.agents/logs/verification/20260224T165252Z_i-3hl4_staging_langfuse_smoke/`
+- Evidence path tracking: `.agents/logs/verification/**` is explicitly unignored in `.gitignore` for reproducible audit commits.
+- Default stdout JSONL smoke: `12_smoke_stdout_default_rerun.log` (`exit_code: 0`, `http_code: 200`, `result: pass`)
+- File append smoke: `13_smoke_with_artifact_file_rerun.log` + `langfuse-ui-smoke.jsonl` (`exit_code: 0`)
+- Append/parity check: `14_artifact_append_validation.log` (`artifact_line_count:2`, `latest_line_matches_rerun_stdout:True`, `latest_http_code:200`)
+- Sensitive raw marker scan: `15_sensitive_scan_rerun.log` (`token/cookie/set-cookie` raw marker `NOT_FOUND` in evidence targets)
+- `.specs/` impact: none (operation evidence and runbook note only)
+
 ### Trace persistence checklist
 
 - [ ] Write trace data through runtime path.

@@ -1,0 +1,9 @@
+command: python3 stdout JSONL and artifact JSONL parity check
+exit_code: 0
+utc_timestamp: 2026-02-24T16:54:13Z
+--- output ---
+stdout_line_found:True
+file_line_found:True
+exact_match:True
+stdout_http_code:200
+file_http_code:200

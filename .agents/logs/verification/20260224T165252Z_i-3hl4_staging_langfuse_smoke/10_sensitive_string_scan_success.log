@@ -1,0 +1,8 @@
+command: python3 sensitive scan for token/cookie/set-cookie raw markers
+exit_code: 0
+utc_timestamp: 2026-02-24T16:54:06Z
+--- output ---
+02_smoke_stdout_default.log:NOT_FOUND
+03_smoke_with_artifact_file.log:NOT_FOUND
+04_artifact_file_contents.log:NOT_FOUND
+langfuse-ui-smoke.jsonl:NOT_FOUND

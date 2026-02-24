@@ -219,3 +219,9 @@ skills/supabase-postgres-best-practices
 .worktrees/
 
 .secrets/
+
+# Track verification evidence logs for auditability
+!.agents/
+!.agents/logs/
+!.agents/logs/verification/
+!.agents/logs/verification/**
