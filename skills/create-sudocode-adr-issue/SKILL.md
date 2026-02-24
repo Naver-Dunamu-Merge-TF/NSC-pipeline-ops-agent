@@ -1,6 +1,6 @@
 ---
 name: create-sudocode-adr-issue
-description: "Publishes a follow-up Sudocode issue for an ADR that was just written. Covers issue creation via sudocode-mcp_upsert_issue, title/tag formatting with ADR-NNNN prefix, DoD checklist generation, and linking to the parent issue."
+description: "Publishes a follow-up Sudocode issue for an ADR that was just written. Covers issue creation via sudocode-mcp_upsert_issue, title/tag formatting with ADR-YYYYMMDD-HHMM prefix, DoD checklist generation, and linking to the parent issue."
 ---
 
 # create-sudocode-adr-issue
@@ -9,7 +9,7 @@ description: "Publishes a follow-up Sudocode issue for an ADR that was just writ
 
 From the current session, identify:
 
-- **ADR number** (NNNN) and file path: `docs/adr/NNNN-<slug>.md`
+- **ADR identifier** (YYYYMMDD-HHMM) and file path: `docs/adr/YYYYMMDD-HHMM-<slug>.md`
 - **ADR decision** — the one-sentence Decision from the ADR
 - **ADR rationale** — key open items or follow-up triggers (from the Rationale section)
 - **Parent issue ID** — the Sudocode issue that was being worked on when the ADR was created
@@ -17,10 +17,10 @@ From the current session, identify:
 ## 2. Issue Title
 
 ```
-ADR-NNNN: <imperative phrase describing the follow-up work to be done> (Korean)
+ADR-YYYYMMDD-HHMM: <imperative phrase describing the follow-up work to be done> (Korean)
 ```
 
-Example: `ADR-0004: src/ 통합 기준에 따라 패키징 스크립트를 수정한다`
+Example: `ADR-20260225-1430: src/ 통합 기준에 따라 패키징 스크립트를 수정한다`
 
 ## 3. Call `sudocode-mcp_upsert_issue`
 
