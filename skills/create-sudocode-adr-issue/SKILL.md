@@ -28,10 +28,10 @@ Parameters:
 
 | Field | Value |
 |-------|-------|
-| `title` | `ADR-NNNN: <follow-up action>` |
+| `title` | `ADR-YYYYMMDD-HHMM: <follow-up action>` |
 | `priority` | `1` |
 | `status` | `open` |
-| `tags` | `["adr", "adr:NNNN", "decision-bearing"]` |
+| `tags` | `["adr", "adr:YYYYMMDD-HHMM", "decision-bearing"]` |
 | `description` | Body from §4 below |
 
 ## 4. Issue Body Template
@@ -40,7 +40,7 @@ Write the description in Korean using this structure:
 
 ```
 배경:
-- ADR-NNNN(`docs/adr/NNNN-<slug>.md`)에서 <핵심 결정>을 결정했다.
+- ADR-YYYYMMDD-HHMM(`docs/adr/YYYYMMDD-HHMM-<slug>.md`)에서 <핵심 결정>을 결정했다.
 - <why follow-up tracking is needed — e.g., open items, deferred decisions, re-evaluation triggers>
 
 작업 범위:
