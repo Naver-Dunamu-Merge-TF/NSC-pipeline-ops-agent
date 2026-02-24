@@ -58,6 +58,74 @@ Expected result:
 
 These checks are intentionally manual and should be attached as operator evidence (ticket comment, run log path, screenshots, or CLI output snippets).
 
+### Databricks real-environment secret smoke (ADR-0015)
+
+Secret resolution convention to verify:
+
+- `get_secret` lookup order is env stub first, then Databricks secret scope.
+- env stub key mapping is `SECRET_<NORMALIZED_KEY>` where `NORMALIZED_KEY` is uppercase, non-alnum -> `_`, repeated `_` collapsed, and leading/trailing `_` trimmed.
+- scope env precedence is `DATABRICKS_SECRET_SCOPE` first, fallback `KEY_VAULT_SECRET_SCOPE`.
+
+Required env vars (operator shell; scope vars required for step 3):
+
+- `DATABRICKS_HOST`
+- `DATABRICKS_TOKEN`
+- `DATABRICKS_SECRET_SCOPE` (preferred) or `KEY_VAULT_SECRET_SCOPE` (fallback)
+- `SECRET_SMOKE_KEY` (example: `azure-openai-endpoint`)
+- `GET_SECRET_CALLABLE` (example: `module.path:get_secret`)
+
+Execution commands:
+
+```bash
+# 1) Confirm Databricks auth context
+databricks current-user me
+
+# Shared env-stub key derivation (ADR-0015 normalization contract)
+ENV_STUB_KEY="$(python - <<'PY'
+import os
+import re
+
+key = os.environ["SECRET_SMOKE_KEY"].upper()
+key = re.sub(r"[^A-Z0-9]+", "_", key)
+key = re.sub(r"_+", "_", key).strip("_")
+print(f"SECRET_{key}")
+PY
+)"
+
+# 2) Env-first path (must succeed even if scope read would fail)
+ORIG_DATABRICKS_SECRET_SCOPE="${DATABRICKS_SECRET_SCOPE-__UNSET__}"
+ORIG_KEY_VAULT_SECRET_SCOPE="${KEY_VAULT_SECRET_SCOPE-__UNSET__}"
+export DATABRICKS_SECRET_SCOPE="__invalid_scope_for_env_first_check__"
+export KEY_VAULT_SECRET_SCOPE="__invalid_scope_for_env_first_check__"
+export "$ENV_STUB_KEY=https://env-stub.example"
+python -c "import importlib, os; module_path, func_name = os.environ['GET_SECRET_CALLABLE'].split(':', 1); get_secret = getattr(importlib.import_module(module_path), func_name); print(get_secret(os.environ['SECRET_SMOKE_KEY']))"
+
+# 3) Scope-fallback path (env unset -> scope read)
+unset "$ENV_STUB_KEY"
+if [ "$ORIG_DATABRICKS_SECRET_SCOPE" = "__UNSET__" ]; then unset DATABRICKS_SECRET_SCOPE; else export DATABRICKS_SECRET_SCOPE="$ORIG_DATABRICKS_SECRET_SCOPE"; fi
+if [ "$ORIG_KEY_VAULT_SECRET_SCOPE" = "__UNSET__" ]; then unset KEY_VAULT_SECRET_SCOPE; else export KEY_VAULT_SECRET_SCOPE="$ORIG_KEY_VAULT_SECRET_SCOPE"; fi
+python -c "import importlib, os; module_path, func_name = os.environ['GET_SECRET_CALLABLE'].split(':', 1); get_secret = getattr(importlib.import_module(module_path), func_name); print(get_secret(os.environ['SECRET_SMOKE_KEY']))"
+```
+
+Success criteria:
+
+- Step 2 prints env stub value and does not require scope read success.
+- Step 3 prints non-empty scope value when `DATABRICKS_SECRET_SCOPE` (or fallback scope) is valid.
+- Missing scope/secret and 403/404 are classified as `Permanent`; 429/5xx/timeouts are classified as `Transient`.
+
+Failure criteria:
+
+- Env stub present but scope read is attempted or env value is not returned.
+- `DATABRICKS_SECRET_SCOPE` is set but implementation reads fallback scope first.
+- Failure classification does not match: 403/404/missing secret -> `Permanent`; 429/5xx/timeouts -> `Transient`.
+
+Evidence/log recording expectations:
+
+- Attach executed commands, UTC timestamp, operator, workspace URL, and target branch/worktree.
+- Attach stdout/stderr for both step 2 and step 3.
+- Record the resolved scope variable source (`DATABRICKS_SECRET_SCOPE` vs `KEY_VAULT_SECRET_SCOPE`).
+- Record one explicit pass/fail verdict per criterion above.
+
 ### Alert/Event smoke checklist
 
 - [ ] `TRIAGE_READY`: inject a test event path, confirm Azure Monitor alert trigger and notification delivery.

@@ -613,6 +613,39 @@ v1 엄격 전환(향후) 기준/절차(ADR-0013 연동):
 
 에이전트가 사용하는 모든 시크릿은 기존 인프라인 Azure Key Vault에서 관리한다.
 
+`get_secret(key: str)` 조회 규약(ADR-0015)은 아래 순서와 키 규칙으로 고정한다.
+
+1. **env stub 우선 조회**: `SECRET_<정규화된 대문자 키>` 환경변수를 먼저 확인한다.
+2. **Databricks secret scope 조회**: env stub miss일 때만 Databricks secret scope에서 동일 key를 조회한다.
+
+키 정규화 규칙:
+
+- 입력 key를 대문자로 변환한다.
+- 영문/숫자를 제외한 문자는 `_`로 치환한다.
+- 연속 `_`는 단일 `_`로 축약하고 앞뒤 `_`는 제거한다.
+- 최종 env 키는 `SECRET_<NORMALIZED_KEY>` 형식으로 만든다.
+
+Databricks scope 선택 우선순위:
+
+1. `DATABRICKS_SECRET_SCOPE`
+2. `KEY_VAULT_SECRET_SCOPE` (fallback)
+
+예시:
+
+- `get_secret("azure-openai-endpoint")` -> env 키 `SECRET_AZURE_OPENAI_ENDPOINT`
+- `get_secret("databricks-agent-token")` -> env 키 `SECRET_DATABRICKS_AGENT_TOKEN`
+
+예외 분류 규약(회귀 게이트):
+
+- env stub miss + scope miss/403/404는 `Permanent`로 분류한다.
+- Databricks API 429/5xx/일시적 네트워크 실패는 `Transient`로 분류한다.
+- 위 분류/우선순위/폴백은 단위 테스트로 고정하고 문서와 구현을 동일 기준으로 유지한다.
+
+테스트/운영 문서 교차 참조:
+
+- 회귀 테스트 소유: DEV-005 secret-contract test gate (issue `i-32vd` / roadmap DoD)
+- 운영 기준: `docs/runbooks/ai-agent-infra-dev.md`의 "Databricks real-environment secret smoke (ADR-0015)"
+
 | 시크릿 | Key Vault 키 | 용도 |
 |--------|-------------|------|
 | Databricks API 토큰 | `databricks-agent-token` | Jobs API 호출 |
