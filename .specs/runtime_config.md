@@ -40,6 +40,17 @@
 | `CHECKPOINT_DB_PATH` | `CHECKPOINT_DB_PATH` | 선택 (미지정 시 기본값) | `checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` |
 | `LLM_DAILY_CAP` | `LLM_DAILY_CAP` | 선택 (미지정 시 `30`) | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
 
+### DEV-012 fingerprint smoke 입력 경로 정책 (ADR-0027)
+
+`tests/smoke/test_incident_fingerprint_smoke.py`의 실행 입력은 아래 규칙으로 고정한다.
+
+- 기본 입력: `tests/fixtures/runtime_inputs/<DEV012_SMOKE_ENV>_incident_input.json`
+- `DEV012_SMOKE_ENV` 기본값: `dev` (허용값: `dev`, `staging`)
+- 선택 override: `DEV012_RUNTIME_INPUT_PATH` 설정 시 해당 절대/상대 경로를 우선 사용
+- 실행 게이트: `RUN_DEV012_FINGERPRINT_SMOKE=1`일 때만 smoke 수행(기본은 skip)
+
+이 정책은 운영 runbook(`docs/runbooks/ai-agent-infra-dev.md`)의 "DEV-012 fingerprint smoke execution policy (ADR-0027)" 절차와 동일해야 하며, 변경 시 테스트/문서를 같은 변경에서 함께 갱신한다.
+
 ## Databricks Job ID 설정 위치
 
 Databricks 실행기가 파이프라인별 올바른 Job을 호출하려면 `config/databricks_jobs.yaml`에 Job ID를 설정한다.

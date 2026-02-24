@@ -175,6 +175,37 @@ Pass criteria:
 - Corresponding custom log is queryable in Log Analytics within 5 minutes.
 - Matching Azure Monitor alert fires exactly once and action-group notification is delivered.
 
+### DEV-012 fingerprint smoke execution policy (ADR-0027)
+
+Use `tests/smoke/test_incident_fingerprint_smoke.py` as the single execution entrypoint.
+
+Execution command:
+
+```bash
+RUN_DEV012_FINGERPRINT_SMOKE=1 pytest tests/smoke/test_incident_fingerprint_smoke.py -rA -s
+```
+
+- `-s` preserves the emitted JSON line so `runtime_input_path` evidence is visible in stdout.
+- `-rA` preserves skip-reason text in pytest's summary output.
+
+Input path policy:
+
+- Default fixture path: `tests/fixtures/runtime_inputs/<DEV012_SMOKE_ENV>_incident_input.json`
+- `DEV012_SMOKE_ENV` default: `dev` (allowed values: `dev`, `staging`)
+- Optional env override: `DEV012_RUNTIME_INPUT_PATH=/abs/path/to/input.json`
+
+Opt-in gate policy:
+
+- Smoke executes only when `RUN_DEV012_FINGERPRINT_SMOKE=1`.
+- Without opt-in, the test is skipped by design.
+
+Operator checklist (record evidence in ticket/PR note):
+
+- [ ] Default fixture mode: run command above without `DEV012_RUNTIME_INPUT_PATH`; output `runtime_input_path` points to `tests/fixtures/runtime_inputs/dev_incident_input.json` or `staging_incident_input.json`.
+- [ ] Override mode: rerun with `DEV012_RUNTIME_INPUT_PATH` and confirm output `runtime_input_path` equals the provided path.
+- [ ] Gate mode: run once without `RUN_DEV012_FINGERPRINT_SMOKE=1` using `pytest tests/smoke/test_incident_fingerprint_smoke.py -rA -s` and confirm skip message appears.
+- [ ] Rationale trace: keep ADR-0027 rejected alternatives in evidence notes (fixture-only rejected for low flexibility, real-env default rejected for low reproducibility, always-on rejected for unnecessary cost/dependency exposure).
+
 ### Private-path-only validation checklist
 
 - [ ] Databricks job path reaches LangFuse via private network route only.
