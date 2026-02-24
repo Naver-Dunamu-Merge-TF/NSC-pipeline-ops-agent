@@ -203,6 +203,52 @@ def test_run_databricks_job_live_calls_api(
     ]
 
 
+def test_run_databricks_job_live_uses_databricks_host_secret_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tools.databricks_jobs.load_databricks_jobs_config",
+        _fake_jobs_config,
+    )
+
+    looked_up_secret_keys: list[str] = []
+
+    def _fake_get_secret(key: str) -> str:
+        looked_up_secret_keys.append(key)
+        if key == "agent-execute-mode":
+            return "live"
+        if key == "databricks-host":
+            return "https://adb.example.com"
+        if key == "databricks-agent-token":
+            return "token"
+        raise AssertionError(f"Unexpected secret lookup: {key}")
+
+    def _fake_http_json_request(
+        *,
+        method: str,
+        url: str,
+        token: str,
+        payload: dict[str, Any] | None = None,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        _ = method, url, token, payload, timeout_seconds
+        return {"run_id": 998877}
+
+    monkeypatch.setattr("tools.databricks_jobs.get_secret", _fake_get_secret)
+    monkeypatch.setattr(
+        "tools.databricks_jobs._http_json_request",
+        _fake_http_json_request,
+    )
+
+    run_databricks_job("retry_pipeline", {"pipeline": "pipeline_b"})
+
+    assert looked_up_secret_keys == [
+        "agent-execute-mode",
+        "databricks-host",
+        "databricks-agent-token",
+    ]
+
+
 def test_run_databricks_job_retries_5xx_after_status_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -331,6 +377,69 @@ def test_run_databricks_job_retries_when_active_run_lookup_fails_after_5xx(
         "https://adb.example.com/api/2.1/jobs/run-now",
     ]
     assert sleep_calls == [10.0]
+
+
+def test_run_databricks_job_5xx_checks_active_run_before_any_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tools.databricks_jobs.load_databricks_jobs_config",
+        _fake_jobs_config,
+    )
+
+    sleep_calls: list[float] = []
+    request_urls: list[str] = []
+
+    def _fake_get_secret(key: str) -> str:
+        if key == "agent-execute-mode":
+            return "live"
+        if key == "databricks-host":
+            return "https://adb.example.com"
+        if key == "databricks-agent-token":
+            return "token"
+        raise AssertionError(f"Unexpected secret lookup: {key}")
+
+    responses = iter(
+        [
+            _DatabricksHttpError(
+                "Databricks API error status=503: temporary",
+                status_code=503,
+            ),
+            {"runs": [{"run_id": 9900}]},
+        ]
+    )
+
+    def _fake_http_json_request(
+        *,
+        method: str,
+        url: str,
+        token: str,
+        payload: dict[str, Any] | None = None,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        _ = method, token, payload, timeout_seconds
+        request_urls.append(url)
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr("tools.databricks_jobs.get_secret", _fake_get_secret)
+    monkeypatch.setattr(
+        "tools.databricks_jobs._http_json_request",
+        _fake_http_json_request,
+    )
+    monkeypatch.setattr("tools.databricks_jobs.time.sleep", sleep_calls.append)
+
+    result = run_databricks_job("retry_pipeline", {"pipeline": "pipeline_b"})
+
+    assert result["status"] == "submitted"
+    assert result["job_run_id"] == "9900"
+    assert request_urls == [
+        "https://adb.example.com/api/2.1/jobs/run-now",
+        "https://adb.example.com/api/2.1/jobs/runs/list?job_id=101002&active_only=true&limit=1",
+    ]
+    assert sleep_calls == []
 
 
 def test_run_databricks_job_retries_when_active_run_lookup_fails_after_timeout(

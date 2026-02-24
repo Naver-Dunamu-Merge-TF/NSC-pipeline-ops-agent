@@ -14,6 +14,7 @@
 
 | 항목 | Key Vault 키 | dev | staging | prod |
 |------|--------------|-----|---------|------|
+| Databricks API 호스트 | `databricks-host` | dev workspace host | staging workspace host | prod workspace host |
 | Databricks API 토큰 | `databricks-agent-token` | 개인 PAT | 서비스 계정 토큰 | 서비스 계정 토큰 |
 | Azure OpenAI API 키 | `azure-openai-api-key` | dev 배포 키 | staging 배포 키 | prod 배포 키 |
 | Azure OpenAI 엔드포인트 | `azure-openai-endpoint` | dev 리전 엔드포인트 | staging 리전 엔드포인트 | prod 리전 엔드포인트 |

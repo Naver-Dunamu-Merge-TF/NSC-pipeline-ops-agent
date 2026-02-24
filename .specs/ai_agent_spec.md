@@ -648,6 +648,7 @@ Databricks scope 선택 우선순위:
 
 | 시크릿 | Key Vault 키 | 용도 |
 |--------|-------------|------|
+| Databricks API 호스트 | `databricks-host` | Jobs API base host 조회 |
 | Databricks API 토큰 | `databricks-agent-token` | Jobs API 호출 |
 | LangFuse 공개키 | `langfuse-public-key` | Trace 수집 |
 | LangFuse 비밀키 | `langfuse-secret-key` | Trace 수집 |
@@ -665,6 +666,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 
 | 설정 | 유형 | 키/변수명 | dev | staging | prod |
 |------|------|-----------|-----|---------|------|
+| Databricks API 호스트 | Key Vault | `databricks-host` | dev workspace host | staging workspace host | prod workspace host |
 | Databricks API 토큰 | Key Vault | `databricks-agent-token` | 개인 PAT | 서비스 계정 토큰 | 서비스 계정 토큰 |
 | Azure OpenAI API 키 | Key Vault | `azure-openai-api-key` | dev 배포 | staging 배포 | prod 배포 |
 | Azure OpenAI 엔드포인트 | Key Vault | `azure-openai-endpoint` | dev 리전 | staging 리전 | prod 리전 |
@@ -725,13 +727,13 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 |------|----------|--------|------|
 | Transient | HTTP 429 (Rate Limit) | 최대 3회, exponential backoff (2s → 4s → 8s) | 재시도 소진 시 에스컬레이션 |
 | Transient | 네트워크 타임아웃 (연결/읽기) | 최대 2회, 5초 대기 후 | 재시도 소진 시 에스컬레이션 |
-| Transient | Databricks API 5xx | 최대 2회, 10초 대기 후 | 재시도 전 `check_job_status`로 실행 여부 먼저 확인 |
+| Transient | Databricks API 5xx | 최대 2회, 10초 대기 후 | 재시도 전 `runs/list(active_only)`로 기존 활성 실행 여부 먼저 확인 |
 | Permanent | 인증 실패 (401/403) | 없음 | 즉시 에스컬레이션 |
 | Permanent | 잡 not found (404) | 없음 | 즉시 에스컬레이션 |
 | Permanent | Pydantic 검증 실패 | 없음 | triage_report_raw 저장 + 에스컬레이션 |
 | Permanent | 비즈니스 로직 실패 (backfill 후 재실패) | 없음 | 즉시 에스컬레이션 |
 
-**Databricks Jobs API 특수 처리**: 잡 실행 요청 후 타임아웃이 발생하면 "실행 여부 불명" 상태가 된다. 재시도 전 반드시 `check_job_status`로 기존 실행이 진행 중인지 확인하고, 진행 중이면 재시도하지 않고 폴링으로 전환한다.
+**Databricks Jobs API 특수 처리**: 잡 실행 요청 후 timeout/5xx가 발생하면 "실행 여부 불명" 상태가 된다. 재시도 전 반드시 `runs/list(active_only)`로 기존 활성 실행을 먼저 확인하고, 활성 실행이 있으면 재시도하지 않고 해당 run_id를 반환한다.
 
 **LLM 호출 정책**:
 
