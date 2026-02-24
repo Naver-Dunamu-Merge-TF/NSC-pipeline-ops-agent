@@ -1,6 +1,11 @@
 
 ## G1: Spec & 실행 환경 인터페이스가 “개발 가능 상태”로 고정된다
 
+### 이슈 작성 체크포인트
+
+- DoD에 코드 파일 경로를 적을 때는 `git ls-files <path>`로 실존 경로를 먼저 확인한다.
+- 런타임 설정 키 이름 검증 근거 경로는 ADR-0015에 따라 `src/orchestrator/utils/config.py`로 고정한다.
+
 ### Epic: [EPIC-01] Spec SSOT 정합성을 고정한다
 
 #### DEV-001: 에이전트 입력 테이블 사용 컬럼을 SSOT로 고정하면 구현 중 스키마 혼선이 사라진다
@@ -137,7 +142,7 @@ backlog
 
 ##### DoD
 
-* [ ] `utils/config.py`에 런타임 설정 모델이 정의돼 있고, `TARGET_PIPELINES`, `CHECKPOINT_DB_PATH`, `LLM_DAILY_CAP`, `LANGFUSE_HOST` 등을 로드/검증한다
+* [ ] `src/orchestrator/utils/config.py`에 런타임 설정 모델이 정의돼 있고, `TARGET_PIPELINES`, `CHECKPOINT_DB_PATH`, `LLM_DAILY_CAP`, `LANGFUSE_HOST` 등을 로드/검증한다
 * [ ] `TARGET_PIPELINES`가 `pipeline_silver,pipeline_b,...` 문자열에서 공백 제거 포함해 list로 안정적으로 파싱된다
 * [ ] `CHECKPOINT_DB_PATH` 기본값이 기획서 기본값(로컬 `checkpoints/agent.db`)과 정합하다
 * [ ] `LLM_DAILY_CAP` 미설정 시 기본값 30이 적용되고, 설정 시 override 값이 적용되며 양의 정수 검증이 수행된다
@@ -173,7 +178,7 @@ backlog
 
 ##### DoD
 
-* [ ] `utils/secrets.py`에 `get_secret(key: str) -> str`(또는 동등) 인터페이스가 있고, Key Vault 키(예: `azure-openai-api-key`, `databricks-agent-token`)를 로드할 수 있다
+* [ ] `src/orchestrator/utils/secrets.py`에 `get_secret(key: str) -> str`(또는 동등) 인터페이스가 있고, Key Vault 키(예: `azure-openai-api-key`, `databricks-agent-token`)를 로드할 수 있다
 * [ ] 로컬/테스트에서는 stub(환경변수 또는 테스트 더블)로 동작해 단위 테스트가 가능하다
 * [ ] dev Databricks 환경에서 **최소 1개 시크릿**(예: `azure-openai-endpoint`)을 실제로 읽는 스모크가 통과한다
 * [ ] 실패 시 Transient/Permanent 분류가 가능하도록 예외 타입/에러 메시지 규약이 있다
@@ -209,7 +214,7 @@ backlog
 
 * [ ] `.specs/runtime_config.md`에 Key Vault 키/환경변수 목록과 dev/staging/prod 값(또는 성격)이 기획서 표와 동일하게 정리돼 있다
 * [ ] “dev/staging은 dry-run 고정, prod는 live” 정책이 문서에 명시돼 있다
-* [ ] 문서가 코드(`utils/config.py`, `utils/secrets.py`)와 키 이름 수준에서 불일치가 없다
+* [ ] 문서가 코드(`src/orchestrator/utils/config.py`)와 키 이름 수준에서 불일치가 없다
 * [ ] 기존 CI가 모두 통과한다
 
 ### Epic: [EPIC-04] Databricks 실행 액션 계약을 고정한다

@@ -28,6 +28,7 @@
 키 이름 검증 기준(DoD3: "환경변수 키 이름 검증")은 `src/orchestrator/utils/config.py`의 `load_runtime_settings` 구현이며,
 필수 키는 `("TARGET_PIPELINES", "LANGFUSE_HOST")`, 선택 키는 `CHECKPOINT_DB_PATH`, `LLM_DAILY_CAP`이다.
 환경변수 매트릭스 SSOT는 위 `load_runtime_settings` 코드 경로이며, 키 추가/변경 시 코드-문서-`tests/unit/test_runtime_config.py`를 같은 변경에서 함께 갱신한다.
+문서/이슈에서 해당 검증 경로를 다시 인용할 때는 `git ls-files src/orchestrator/utils/config.py` 확인을 체크포인트로 사용한다.
 
 `src/orchestrator/utils/config.py` 기준으로 런타임에서 실제 로딩/검증되는 환경변수는 아래 4개다.
 
