@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
@@ -19,3 +19,24 @@ PendingReview
 ## Rationale
 
 대안 1은 저장소 전체 경로를 일괄 정규화하는 방식이지만, 과거 의사결정 맥락과 스냅샷 원형을 바꿔 감사 가능성과 추적 가능성을 떨어뜨리므로 기각했다. 대안 2는 정규화를 전혀 적용하지 않는 방식이지만, 현재 운영 기준 문서의 일관성이 유지되지 않아 이후 작업 품질이 저하될 수 있어 기각했다. 활성 소스만 정규화하면 미래 작업 정확성을 확보하면서도 과거 기록 불변성을 유지하는 균형을 얻을 수 있다.
+
+## Historical Residue Index (file+line)
+
+### `docs/adr/*`
+
+- `docs/adr/0015-align-dev006-key-verification-path.md:13` (`utils/config.py`, `utils/secrets.py`)
+- `docs/adr/0015-align-dev006-key-verification-path.md:17` (`utils/secrets.py`)
+
+### `.sudocode/*`
+
+- `.sudocode/issues.jsonl:5` (`utils/secrets.py`)
+- `.sudocode/issues.jsonl:6` (`utils/config.py`)
+- `.sudocode/issues.jsonl:16` (`utils/config.py`, `utils/secrets.py`)
+- `.sudocode/issues.jsonl:55` (`utils/secrets.py`)
+
+## Reproducible Audit Commands
+
+```bash
+grep -nE '`utils/config\.py`|`utils/secrets\.py`' docs/adr/*.md | grep -v "docs/adr/0017-limit-path-normalization-to-active-sources.md"
+grep -nE '`utils/config\.py`|`utils/secrets\.py`' .sudocode/*.jsonl
+```

@@ -49,3 +49,48 @@ Databricks 실행기가 파이프라인별 올바른 Job을 호출하려면 `con
 - 값 타입: 정수(`int`) Job ID만 허용
 
 운영 환경 변경 시에는 코드 수정 없이 `config/databricks_jobs.yaml`의 Job ID만 갱신한다.
+
+## 경로 참조 운영 체크리스트 (활성/역사 분리)
+
+ADR-0017에 따라 경로 정규화/교정 점검은 아래 2개 절차로 분리한다.
+
+### 1) 활성 문서 점검 절차 (`.roadmap/`, `.specs/`)
+
+- 목적: 다음 구현 입력으로 쓰이는 문서의 경로 참조를 실제 코드 경로와 정렬한다.
+- 적용 원칙: 불일치가 있으면 해당 문서를 수정한다.
+
+템플릿:
+
+```markdown
+- [ ] 점검 범위: `.roadmap/**/*.md`, `.specs/**/*.md`
+- [ ] 경로 실존 확인: `git ls-files <path>`
+- [ ] 불일치 교정 반영: 활성 문서 본문 업데이트
+- [ ] 교정 근거 기록: 관련 ADR/이슈 링크 첨부
+```
+
+재현 명령:
+
+```bash
+grep -nE '`utils/config\.py`|`utils/secrets\.py`' .roadmap/*.md .specs/*.md | grep -v ".specs/runtime_config.md"
+```
+
+### 2) 역사 기록 점검 절차 (`docs/adr/*`, `.sudocode/*`)
+
+- 목적: 과거 경로 잔여를 수정하지 않고 file+line 인덱스로 추적한다.
+- 적용 원칙: 본문 재작성 금지, 인덱스 문서만 갱신한다.
+
+템플릿:
+
+```markdown
+- [ ] 점검 범위: `docs/adr/*.md`, `.sudocode/*.jsonl`
+- [ ] 잔여 인덱스 갱신: 파일 경로 + 라인 번호를 ADR-0017 인덱스에 반영
+- [ ] 본문 불변성 확인: 역사 기록 파일 본문은 수정하지 않음
+- [ ] 재현 명령 결과 첨부: grep 출력으로 검증
+```
+
+재현 명령:
+
+```bash
+grep -nE '`utils/config\.py`|`utils/secrets\.py`' docs/adr/*.md | grep -v "docs/adr/0017-limit-path-normalization-to-active-sources.md"
+grep -nE '`utils/config\.py`|`utils/secrets\.py`' .sudocode/*.jsonl
+```
