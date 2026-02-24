@@ -132,6 +132,49 @@ Evidence/log recording expectations:
 - [ ] `APPROVAL_TIMEOUT`: run timeout scenario (30/60 minute policy), confirm reminder/escalation behavior.
 - [ ] `EXECUTION_FAILED`: inject a controlled failed execution event and confirm alert trigger.
 
+### Alerting real-environment send smoke minimum conditions (ADR-0024 reassessment)
+
+Use this only when local smoke (`tests/smoke/test_alerting_smoke.py`) passes and one of the following is true:
+
+- Production-like credential rotation or DCR endpoint change is pending.
+- Alert rule/action group routing changed in DEV.
+- Weekly alerting canary slot (one controlled send per week) is due.
+
+Required auth/secrets:
+
+- `LOG_ANALYTICS_DCR_ENDPOINT`
+- `LOG_ANALYTICS_DCR_IMMUTABLE_ID`
+- `LOG_ANALYTICS_STREAM_NAME`
+- Databricks runtime identity/token that can call Azure Monitor Data Collection API in DEV
+
+Execution timing guardrails:
+
+- Run in DEV weekday daytime window (`09:00-18:00 KST`) so on-call can verify action-group delivery.
+- Do not run during active incident handling unless the incident commander requested it.
+- Keep one test event per `event_type` per run to avoid duplicate noise.
+
+Execution example:
+
+```bash
+python - <<'PY'
+from tools.alerting import TRIAGE_READY, emit_alert
+
+emit_alert(
+    severity="INFO",
+    event_type=TRIAGE_READY,
+    summary="dev real-path smoke",
+    detail={"env": "dev", "smoke": "real-path", "operator": "<id>"},
+)
+print("sent")
+PY
+```
+
+Pass criteria:
+
+- `emit_alert` returns without exception.
+- Corresponding custom log is queryable in Log Analytics within 5 minutes.
+- Matching Azure Monitor alert fires exactly once and action-group notification is delivered.
+
 ### Private-path-only validation checklist
 
 - [ ] Databricks job path reaches LangFuse via private network route only.
