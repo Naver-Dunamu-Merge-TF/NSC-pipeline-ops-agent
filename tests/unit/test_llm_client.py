@@ -28,7 +28,12 @@ def _env(db_path: Path, *, cap: str = "30") -> dict[str, str]:
     }
 
 
-def test_invoke_llm_retries_429_with_exponential_backoff(tmp_path: Path) -> None:
+def test_invoke_llm_retries_429_with_exponential_backoff(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO)
     db_path = tmp_path / "checkpoints" / "agent.db"
     attempts = 0
     delays: list[float] = []
@@ -57,6 +62,12 @@ def test_invoke_llm_retries_429_with_exponential_backoff(tmp_path: Path) -> None
     assert result == {"status": "ok"}
     assert attempts == 4
     assert delays == [2.0, 4.0, 8.0]
+
+    assert "Starting LLM logical invocation" in caplog.text
+    assert "Starting LLM HTTP attempt 1" in caplog.text
+    assert "Starting LLM HTTP attempt 2" in caplog.text
+    assert "Starting LLM HTTP attempt 3" in caplog.text
+    assert "Starting LLM HTTP attempt 4" in caplog.text
 
 
 def test_invoke_llm_retries_retryable_response_status_codes(tmp_path: Path) -> None:

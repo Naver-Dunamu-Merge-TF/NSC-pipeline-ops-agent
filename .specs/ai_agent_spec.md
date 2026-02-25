@@ -678,6 +678,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 | 체크포인터 경로 | 환경변수 | `CHECKPOINT_DB_PATH` | `checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` |
 | LangFuse 호스트 | 환경변수 | `LANGFUSE_HOST` | `http://localhost:3000` | `https://langfuse.internal.nsc.com` | `https://langfuse.internal.nsc.com` |
 | LLM 일일 호출 상한 | 환경변수 | `LLM_DAILY_CAP` | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
+| - (비고) | - | - | 논리 호출 단위 기준, HTTP 시도(재시도 포함)는 로그로 별도 관측 | - | - |
 | 대상 파이프라인 목록 | 환경변수 | `TARGET_PIPELINES` | `pipeline_silver` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` |
 
 참고: `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db`의 `nsc_dbw_dev_7405610275478542`는 현재 배포 워크스페이스의 Unity Catalog 식별자이며, 본 범위에서는 serverless 체크포인터 경로 식별자로 의도적으로 사용한다.
@@ -743,7 +744,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 |------|-----|------|
 | 요청 타임아웃 | 60초 | triage 응답이 길 수 있음 |
 | max_tokens | analyze: 2,000 / triage: 3,000 | 비용 제어 + 응답 길이 제한 |
-| 일일 호출 상한 | `LLM_DAILY_CAP` (기본 30회/day, 환경변수 override) | 비용 통제 + 운영 환경별 조정 |
+| 일일 호출 상한 | `LLM_DAILY_CAP` (논리 호출 단위 기본 30회/day, 환경변수 override) | 비용 통제 + 운영 환경별 조정 |
 | 429 재시도 | 최대 3회 (backoff) | Azure OpenAI rate limit 대응 |
 | 연속 실패 시 | deterministic-only 모드 전환 | LLM 불안정 시에도 감지/경고는 유지 |
 
@@ -931,7 +932,8 @@ def emit_alert(severity: str, event_type: str, summary: str, detail: dict):
 
 LLM 호출 비용 제어를 위한 상한을 설정한다.
 
-- **일일 LLM 호출 상한은 `LLM_DAILY_CAP`로 제어하며 기본값은 30회/day**. 정상 시 0회, 장애 시 analyze + triage + postmortem = 3회. 운영 환경에서는 장애 빈도/비용 예산에 맞춰 값을 조정한다. 상한 도달 시 추가 호출을 차단하고 이메일로 통보.
+- **일일 LLM 호출 상한은 `LLM_DAILY_CAP`로 제어하며 기본값은 30회/day (논리 호출 기준)**. 정상 시 0회, 장애 시 analyze + triage + postmortem = 3회. 운영 환경에서는 장애 빈도/비용 예산에 맞춰 값을 조정한다. 상한 도달 시 추가 호출을 차단하고 이메일로 통보.
+- 실제 HTTP 시도 수(재시도 포함)는 논리 호출 수와 별도로 로그를 통해 관측한다.
 - LangFuse 대시보드에서 일별 토큰 사용량과 비용을 추적.
 
 근거: 감지 루프 버그나 반복 장애로 LLM 호출이 무한 반복되는 것을 방지한다.

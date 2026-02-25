@@ -39,6 +39,7 @@
 | `LANGFUSE_HOST` | `LANGFUSE_HOST` | 필수 | `http://localhost:3000` | `https://langfuse.internal.nsc.com` | `https://langfuse.internal.nsc.com` |
 | `CHECKPOINT_DB_PATH` | `CHECKPOINT_DB_PATH` | 선택 (미지정 시 기본값) | `checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` |
 | `LLM_DAILY_CAP` | `LLM_DAILY_CAP` | 선택 (미지정 시 `30`) | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
+| - (비고) | - | - | 논리 호출 단위 기준, HTTP 시도(재시도 포함)는 로그로 별도 관측 | - | - |
 
 ADR-260225-1012 경계 정책:
 
