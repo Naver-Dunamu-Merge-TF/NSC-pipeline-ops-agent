@@ -23,6 +23,20 @@ DEV-001 기준으로, 에이전트(`detect.py`, `collect.py`)가 실제로 읽�
 | `window_end_ts` | `timestamp` | 최근 윈도우 필터 |
 | `date_kst` | `date` | 파티션 필터 |
 
+### `collect.dq_tags` 정규화 계약 (ADR-260225-1616)
+
+collect 노드는 `silver.dq_status` 입력을 아래 규칙으로 `dq_tags`로 정규화한다.
+
+- 추출: `dq_status`의 각 항목에서 `dq_tag`가 문자열(`str`)인 값만 수집한다.
+- 필터: 빈 문자열(`""`)은 제외한다.
+- 정규화: 중복을 제거한 뒤 오름차순 정렬한다.
+- 결정성: 동일한 `dq_status` 입력은 항상 동일한 `dq_tags` 순서를 반환해야 한다.
+
+회귀 게이트:
+
+- 구현/테스트 SSOT: `graph/nodes/collect.py`, `tests/unit/test_collect_node.py`
+- 정책 고정 테스트: 문자열 추출, 중복 제거, 정렬, 비문자열/빈 문자열 제외를 단위 테스트로 유지한다.
+
 ## `gold.exception_ledger`
 
 | 컬럼 | 타입(권장) | 에이전트 사용 목적 |

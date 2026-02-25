@@ -97,6 +97,23 @@ def test_collect_output_keeps_dq_tag_only_analyze_skip_path() -> None:
     assert route_key == "triage"
 
 
+def test_collect_normalizes_dq_tags_as_string_only_dedup_and_sorted() -> None:
+    state = _base_state()
+    state["dq_status"] = [
+        {"dq_tag": "SOURCE_STALE"},
+        {"dq_tag": ""},
+        {"dq_tag": "DUP_SUSPECTED"},
+        {"dq_tag": "SOURCE_STALE"},
+        {"dq_tag": None},
+        {"dq_tag": 7},
+        "not-a-dict",
+    ]
+
+    updates = collect.run(state)
+
+    assert updates["dq_tags"] == ["DUP_SUSPECTED", "SOURCE_STALE"]
+
+
 def test_collect_classifies_failure_for_retry_vs_escalation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -114,4 +131,36 @@ def test_collect_classifies_failure_for_retry_vs_escalation(
 
     state["dq_status"] = "not-a-list"
     with pytest.raises(collect.CollectPermanentError, match="dq_status must be a list"):
+        collect.run(state)
+
+
+def test_collect_classifies_connection_error_as_transient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = _base_state()
+
+    def _raise_connection_error(_rows: list[dict[str, Any]]) -> dict[str, Any]:
+        raise ConnectionError("temporary collector connection issue")
+
+    monkeypatch.setattr(collect, "summarize_bad_records", _raise_connection_error)
+
+    with pytest.raises(
+        collect.CollectTransientError, match="temporary collector connection issue"
+    ):
+        collect.run(state)
+
+
+def test_collect_classifies_non_network_error_as_permanent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = _base_state()
+
+    def _raise_non_network_error(_rows: list[dict[str, Any]]) -> dict[str, Any]:
+        raise ValueError("unexpected collector format")
+
+    monkeypatch.setattr(collect, "summarize_bad_records", _raise_non_network_error)
+
+    with pytest.raises(
+        collect.CollectPermanentError, match="unexpected collector format"
+    ):
         collect.run(state)
