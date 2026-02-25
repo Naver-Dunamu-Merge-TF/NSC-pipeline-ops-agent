@@ -8,7 +8,8 @@ import json
 
 import pytest
 
-from runtime.agent_runner import AgentRunner
+import runtime.agent_runner as agent_runner_module
+from runtime.agent_runner import AgentRunner, _status_value
 
 
 class _SpyGraph:
@@ -70,6 +71,20 @@ class _IncidentOverrideGraph:
             **state,
             "incident_id": self._override_incident_id,
             "final_status": "resolved",
+        }
+
+
+class _FinalStatusGraph:
+    def __init__(self, final_status: str | None) -> None:
+        self._final_status = final_status
+
+    def invoke(self, state: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+        _ = config
+        if self._final_status is None:
+            return dict(state)
+        return {
+            **state,
+            "final_status": self._final_status,
         }
 
 
@@ -326,3 +341,138 @@ def test_agent_runner_resume_keeps_requested_incident_id_when_graph_overrides_it
     result = runner.resume("inc-stable-2", {"human_decision": "approve"})
 
     assert result["incident_id"] == "inc-stable-2"
+
+
+def test_agent_runner_registry_status_keeps_terminal_status_when_resume_has_no_final_status(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "checkpoints" / "agent.db"
+
+    resolved_runner = AgentRunner(
+        checkpoint_db_path=str(db_path),
+        graph_factory=lambda *, checkpointer: _FinalStatusGraph("resolved"),
+        checkpointer_factory=lambda _path: object(),
+    )
+    resolved_runner.invoke({"incident_id": "inc-terminal-1"})
+
+    resumed_runner = AgentRunner(
+        checkpoint_db_path=str(db_path),
+        graph_factory=lambda *, checkpointer: _FinalStatusGraph(None),
+        checkpointer_factory=lambda _path: object(),
+    )
+    resumed_runner.resume("inc-terminal-1", {})
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT status FROM incident_registry WHERE incident_id = ?",
+            ("inc-terminal-1",),
+        ).fetchone()
+
+    assert row == ("resolved",)
+
+
+def test_agent_runner_registry_status_falls_back_to_default_for_unknown_final_status(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "checkpoints" / "agent.db"
+
+    runner = AgentRunner(
+        checkpoint_db_path=str(db_path),
+        graph_factory=lambda *, checkpointer: _FinalStatusGraph("unknown"),
+        checkpointer_factory=lambda _path: object(),
+    )
+
+    runner.invoke({"incident_id": "inc-status-unknown"})
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT status FROM incident_registry WHERE incident_id = ?",
+            ("inc-status-unknown",),
+        ).fetchone()
+
+    assert row == ("running",)
+
+
+def test_agent_runner_registry_status_update_is_atomic_against_terminal_regression(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "checkpoints" / "agent.db"
+    incident_id = "inc-race-1"
+
+    runner = AgentRunner(
+        checkpoint_db_path=str(db_path),
+        graph_factory=lambda *, checkpointer: _FinalStatusGraph(None),
+        checkpointer_factory=lambda _path: object(),
+    )
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO incident_registry (
+                incident_id,
+                pipeline,
+                detected_at,
+                fingerprint,
+                status,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                incident_id,
+                None,
+                None,
+                None,
+                "running",
+                "2026-01-01T00:00:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    def _status_value_with_interleaving(
+        value: Any,
+        *,
+        default: str,
+        current: str | None = None,
+    ) -> str:
+        _ = (value, default, current)
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                "UPDATE incident_registry SET status = ? WHERE incident_id = ?",
+                ("resolved", incident_id),
+            )
+            conn.commit()
+        return "running"
+
+    monkeypatch.setattr(
+        agent_runner_module,
+        "_status_value",
+        _status_value_with_interleaving,
+    )
+
+    runner.invoke({"incident_id": incident_id})
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT status FROM incident_registry WHERE incident_id = ?",
+            (incident_id,),
+        ).fetchone()
+
+    assert row == ("resolved",)
+
+
+@pytest.mark.parametrize(
+    ("final_status", "default", "expected"),
+    [
+        ("resolved", "running", "resolved"),
+        ("unknown", "running", "running"),
+        (None, "resumed", "resumed"),
+        ("failed", "resumed", "failed"),
+    ],
+)
+def test_status_value_boundary_rules(
+    final_status: str | None,
+    default: str,
+    expected: str,
+) -> None:
+    assert _status_value(final_status, default=default) == expected

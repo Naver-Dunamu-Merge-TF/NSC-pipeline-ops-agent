@@ -11,6 +11,16 @@ from typing import Any
 from graph.graph import build_graph
 
 
+_ALLOWED_REGISTRY_STATUSES = {
+    "running",
+    "resumed",
+    "resolved",
+    "failed",
+    "escalated",
+    "reported",
+}
+
+
 def _load_sqlite_saver() -> type[Any]:
     module = importlib.import_module("langgraph.checkpoint.sqlite")
     return module.SqliteSaver
@@ -146,7 +156,12 @@ class AgentRunner:
                 pipeline = COALESCE(excluded.pipeline, incident_registry.pipeline),
                 detected_at = COALESCE(excluded.detected_at, incident_registry.detected_at),
                 fingerprint = COALESCE(excluded.fingerprint, incident_registry.fingerprint),
-                status = excluded.status,
+                status = CASE
+                    WHEN incident_registry.status IN ('resolved', 'failed', 'escalated', 'reported')
+                        AND excluded.status IN ('running', 'resumed')
+                    THEN incident_registry.status
+                    ELSE excluded.status
+                END,
                 updated_at = excluded.updated_at
             """,
             (
@@ -168,6 +183,6 @@ def _optional_text(value: Any) -> str | None:
 
 
 def _status_value(value: Any, *, default: str) -> str:
-    if isinstance(value, str) and value:
+    if isinstance(value, str) and value in _ALLOWED_REGISTRY_STATUSES:
         return value
     return default

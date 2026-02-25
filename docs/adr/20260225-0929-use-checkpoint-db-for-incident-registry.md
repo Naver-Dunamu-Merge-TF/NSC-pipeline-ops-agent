@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
@@ -19,6 +19,16 @@ DEV-013에서는 `CHECKPOINT_DB_PATH`를 기반으로 체크포인터를 구성�
 ## Decision
 
 incident 최소 메타 레지스트리는 `CHECKPOINT_DB_PATH`가 가리키는 동일 SQLite 파일의 `incident_registry` 테이블에 저장하고, `status`는 `final_status` 우선·부재 시 `invoke=running`/`resume=resumed` 기본값으로 기록하도록 결정한다.
+
+## Implementation-time Status Transition Policy
+
+구현 시점에서 `incident_registry.status` 허용값은 `running`, `resumed`, `resolved`, `failed`, `escalated`, `reported`로 한정한다.
+
+`final_status`가 없거나 허용 집합 밖이면 `invoke` 경로는 `running`, `resume` 경로는 `resumed`를 기본값으로 사용한다.
+
+단조 증가 가드로 terminal 상태(`resolved`, `failed`, `escalated`, `reported`)는 이후 `running`/`resumed`로 되돌리지 않는다.
+
+다만 현재 구현은 더 최신의 유효한 `final_status`가 도착하면 terminal 간 덮어쓰기를 허용하며, 이 규칙은 후속 이슈에서 재검토한다.
 
 ## Rationale
 
