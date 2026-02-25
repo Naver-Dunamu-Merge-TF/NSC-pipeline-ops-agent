@@ -58,6 +58,61 @@ def test_graph_smoke_invoke_no_issues_returns_without_error() -> None:
     assert result["pipeline_states"] == {}
 
 
+def test_graph_smoke_cutoff_delay_routes_to_report_only() -> None:
+    graph = build_graph()
+
+    result = graph.invoke(
+        {
+            "incident_id": "inc-cutoff-1",
+            "pipeline": "pipeline_silver",
+            "run_id": "run-cutoff-1",
+            "detected_at": "2026-02-18T15:40:00+00:00",
+            "fingerprint": "fp-cutoff-1",
+            "pipeline_states": {
+                "pipeline_silver": {
+                    "status": "success",
+                    "last_success_ts": "2026-02-18T15:09:59+00:00",
+                }
+            },
+            "dq_status": [],
+            "exception_ledger": [],
+        }
+    )
+
+    assert [issue["type"] for issue in result["detected_issues"]] == ["cutoff_delay"]
+    assert result["final_status"] == "reported"
+
+
+def test_graph_smoke_duplicate_fingerprint_skips_collect_path() -> None:
+    graph = build_graph()
+
+    result = graph.invoke(
+        {
+            "incident_id": "inc-dup-1",
+            "pipeline": "pipeline_silver",
+            "run_id": "run-dup-1",
+            "detected_at": "2026-02-18T15:40:00+00:00",
+            "fingerprint": "fp-dup-1",
+            "fingerprint_duplicate": True,
+            "pipeline_states": {
+                "pipeline_silver": {
+                    "status": "failure",
+                    "last_success_ts": "2026-02-18T14:00:00+00:00",
+                }
+            },
+            "dq_status": [
+                {
+                    "severity": "CRITICAL",
+                    "dq_tag": "SOURCE_STALE",
+                }
+            ],
+            "exception_ledger": [{"domain": "dq", "severity": "CRITICAL"}],
+        }
+    )
+
+    assert result["detected_issues"] == []
+
+
 def test_build_graph_uses_langgraph_adapter_path(
     monkeypatch,
 ) -> None:
