@@ -803,6 +803,31 @@ checkpointer = SqliteSaver.from_conn_string(CHECKPOINT_DB_PATH)
 graph = build_graph(checkpointer=checkpointer)
 ```
 
+**incident_registry.status 표준값/전이 규칙 (ADR-20260225-0929 후속 고정)**
+
+`incident_registry`는 운영 추적용 최소 메타 레지스트리이며, `status` 허용값은 아래 6개로 고정한다.
+
+| 상태값 | 의미 | 분류 |
+|------|------|------|
+| `running` | `invoke` 경로에서 최종 상태 미결정 | non-terminal |
+| `resumed` | `resume` 경로에서 재개 중, 최종 상태 미결정 | non-terminal |
+| `resolved` | 검증 통과로 장애 해소 | terminal |
+| `failed` | 실행/검증 중 실패 종료 | terminal |
+| `escalated` | 에스컬레이션 종료 | terminal |
+| `reported` | 실행 없이 리포트 종료 | terminal |
+
+상태 계산 규칙(런타임 SSOT):
+
+1. `final_status`가 허용값 집합에 있으면 해당 값을 우선 사용한다.
+2. `final_status`가 없거나 허용되지 않은 값이면 기본값을 사용한다 (`invoke -> running`, `resume -> resumed`).
+3. 현재 레지스트리 상태가 terminal(`resolved`/`failed`/`escalated`/`reported`)일 때 `running`/`resumed`로의 역전이는 허용하지 않는다(기존 terminal 유지).
+4. terminal -> terminal 전이(예: `resolved -> failed`)는 최신 `final_status`가 들어온 경우에만 허용한다.
+
+운영 해석 일관성 점검 항목(회귀 게이트):
+
+- 동일 `incident_id`에 대해 로그(`final_status`)와 `incident_registry.status`를 비교했을 때 terminal 상태 의미가 충돌하지 않아야 한다.
+- 재개 시나리오에서 terminal incident가 `running`/`resumed`로 되돌아가지 않는지 경계 테스트로 고정한다.
+
 **thread_id 전략**
 
 LangGraph 체크포인터는 `thread_id`를 키로 각 실행의 상태를 구분한다.
