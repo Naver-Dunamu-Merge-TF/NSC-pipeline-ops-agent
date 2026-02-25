@@ -32,6 +32,7 @@ class AgentState(TypedDict):
     run_id: Optional[str]
     detected_at: str
     fingerprint: Optional[str]
+    fingerprint_duplicate: Optional[bool]
 
     pipeline_states: dict[str, Any]
     detected_issues: list[Any]

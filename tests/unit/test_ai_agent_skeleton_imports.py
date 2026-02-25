@@ -5,7 +5,14 @@ import importlib
 
 NODE_EXPECTATIONS = {
     "detect": (
-        ("incident_id", "pipeline", "run_id", "detected_at", "fingerprint"),
+        (
+            "incident_id",
+            "pipeline",
+            "run_id",
+            "detected_at",
+            "fingerprint",
+            "fingerprint_duplicate",
+        ),
         ("pipeline_states", "detected_issues"),
     ),
     "collect": (

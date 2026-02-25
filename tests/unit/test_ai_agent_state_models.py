@@ -40,6 +40,7 @@ def test_agent_state_fields_match_spec() -> None:
         "run_id",
         "detected_at",
         "fingerprint",
+        "fingerprint_duplicate",
         "pipeline_states",
         "detected_issues",
         "exceptions",

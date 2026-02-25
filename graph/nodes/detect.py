@@ -8,7 +8,14 @@ from graph.state import AgentState
 from src.orchestrator.pipeline_monitoring_config import load_pipeline_monitoring_config
 from src.orchestrator.utils.time import parse_pipeline_ts
 
-READ_FIELDS = ("incident_id", "pipeline", "run_id", "detected_at", "fingerprint")
+READ_FIELDS = (
+    "incident_id",
+    "pipeline",
+    "run_id",
+    "detected_at",
+    "fingerprint",
+    "fingerprint_duplicate",
+)
 WRITE_FIELDS = ("pipeline_states", "detected_issues")
 
 _LOGGER = logging.getLogger(__name__)
