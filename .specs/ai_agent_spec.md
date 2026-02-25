@@ -1,7 +1,7 @@
 # AI Agent Spec
 
 > **프로젝트**: NSC 결제/정산 데이터 플랫폼 — 파이프라인 장애 자동 대응 에이전트
-> **최종 수정일**: 2026-02-23
+> **최종 수정일**: 2026-02-25
 
 ---
 
@@ -329,6 +329,34 @@ UTC 24시간 기본 윈도우 재평가 트리거(ADR-0008 rationale 연동):
 
 - 과다 조회: 기본 윈도우 12시간 축소안 + 파티션/추가 필터 검토
 - 과소 조회: 기본 윈도우 48시간 확장안 + run_id 보강 조회 검토
+
+### 2.2.4 collect 실패 분류 및 `dq_tags` 정규화 규약 (ADR-260225-1616 정합)
+
+collect 노드(`graph/nodes/collect.py`)는 실패 분류와 `dq_tags` 출력을 아래 규칙으로 고정한다.
+
+| 항목 | 규칙 | 구현 기준 |
+|---|---|---|
+| 실패 분류(Transient) | `TimeoutError`, `ConnectionError`만 재시도 대상 | `_classify_collect_error`가 `CollectTransientError`로 변환 |
+| 실패 분류(Permanent) | 위 2개를 제외한 예외는 영구 실패 | `_classify_collect_error`가 `CollectPermanentError`로 변환 |
+| `dq_tags` 추출 | `dq_status` 항목 중 `dq_tag`가 문자열인 값만 추출 | `_collect_dq_tags` |
+| `dq_tags` 정규화 | 빈 문자열 제외 + 중복 제거 + 오름차순 정렬 | `_collect_dq_tags` |
+
+회귀 테스트 게이트:
+
+- `tests/unit/test_collect_node.py`는 위 4개 규칙(Transient/Permanent 경계 + 문자열 추출/중복 제거/정렬)을 모두 검증해야 한다.
+- collect 규칙 변경은 테스트와 본 섹션을 같은 변경에서 동기화한다.
+
+운영 재검토 트리거(정책 확장 필요 시점):
+
+- 실제 운영에서 `TimeoutError`/`ConnectionError` 외 예외가 일시 장애로 반복 관측되어 재시도가 MTTR 개선에 유의미하다고 확인될 때.
+- 외부 데이터 소스/드라이버 변경으로 예외 타입 계층이 바뀌어 기존 분류가 오분류를 유발할 때.
+- `dq_status` 원천 스키마가 확장되어 문자열 외 태그 표현(예: 배열/중첩 객체)이 계약 후보로 제안될 때.
+
+트리거 충족 시 절차:
+
+1. 운영 증거(예외 빈도/복구율/오분류 사례)를 이슈로 기록한다.
+2. ADR-260225-1616과 본 섹션을 동시 갱신한다.
+3. `tests/unit/test_collect_node.py`에 경계/회귀 테스트를 먼저 추가한 뒤 구현을 변경한다.
 
 ### 2.3 감지 트리거
 
