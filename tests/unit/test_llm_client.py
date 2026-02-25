@@ -238,3 +238,38 @@ def test_consume_daily_budget_is_atomic_for_concurrent_calls(
         results = [future.result() for future in futures]
 
     assert sorted(results) == [False, True]
+
+def test_invoke_llm_logs_logical_invocation_and_http_attempts(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+    
+    caplog.set_level(logging.INFO)
+    db_path = tmp_path / "checkpoints" / "agent.db"
+    attempts = 0
+
+    def requester(timeout_seconds: float) -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 2:
+            raise HTTPError(
+                url="https://example.test",
+                code=429,
+                msg="too many requests",
+                hdrs=HTTPMessage(),
+                fp=None,
+            )
+        return '{"status":"ok"}'
+
+    invoke_llm(
+        requester,
+        environ=_env(db_path),
+        sleep=lambda _: None,
+        response_parser=json.loads,
+    )
+
+    records = [r for r in caplog.records if r.name == "tools.llm_client"]
+    assert len(records) == 3
+    assert records[0].message == "Starting LLM logical invocation"
+    assert records[1].message == "Starting LLM HTTP attempt 1"
+    assert records[2].message == "Starting LLM HTTP attempt 2"
