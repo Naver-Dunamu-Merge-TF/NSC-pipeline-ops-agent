@@ -190,6 +190,7 @@ class AgentState(TypedDict):
     run_id: Optional[str]              # 원본 실행 ID
     detected_at: str                   # 감지 시각 (UTC ISO8601)
     fingerprint: Optional[str]         # SHA256(pipeline + run_id + canonical(detected_issues)) — 동일 장애 재처리 방지
+    fingerprint_duplicate: Optional[bool] # (ADR-260225-1347) True일 경우 detect 노드가 즉시 스킵됨
 
     # ── 감지 ──
     pipeline_states: dict
@@ -236,7 +237,7 @@ class AgentState(TypedDict):
 
 | 노드 | Reads (state에서) | Writes (state로) |
 |------|-----------------|-----------------|
-| **detect** | `incident_id`, `pipeline`, `run_id`, `detected_at`, `fingerprint` + 외부 테이블(`pipeline_state`, `dq_status`, `exception_ledger`) | `pipeline_states`, `detected_issues` |
+| **detect** | `incident_id`, `pipeline`, `run_id`, `detected_at`, `fingerprint`, `fingerprint_duplicate` + 외부 테이블(`pipeline_state`, `dq_status`, `exception_ledger`) | `pipeline_states`, `detected_issues` |
 | **collect** | `pipeline`, `run_id`, `pipeline_states`, `detected_issues` | `exceptions`, `dq_tags`, `bad_records_summary` |
 | **report_only** | `incident_id`, `pipeline`, `detected_at`, `detected_issues`, `pipeline_states` | 결정적 JSON 로그 출력(`report_artifact_storage="log_only"`) + `final_status = "reported"` |
 | **analyze** | `bad_records_summary`, `pipeline` | `dq_analysis` |
@@ -881,6 +882,7 @@ graph.invoke(
 
 중복 방지: entrypoint/watchdog는 `graph.invoke` 전에 `fingerprint`로 체크포인터를 조회한다.
 동일 fingerprint의 thread_id가 이미 존재하면 새 그래프 실행을 시작하지 않고 heartbeat만 기록한다.
+`fingerprint_duplicate=True` 상태로 전달될 경우, detect 노드가 이를 확인하고 즉시 incident 시작을 건너뛴다 (ADR-260225-1347).
 
 #### 알림 체계
 
