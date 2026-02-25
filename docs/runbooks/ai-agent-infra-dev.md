@@ -275,11 +275,52 @@ Latest staging evidence (2026-02-24 UTC):
 - Sensitive raw marker scan: `15_sensitive_scan_rerun.log` (`token/cookie/set-cookie` raw marker `NOT_FOUND` in evidence targets)
 - `.specs/` impact: none (operation evidence and runbook note only)
 
-### Trace persistence checklist
+### Staging trace persistence + e2e trace storage smoke
 
-- [ ] Write trace data through runtime path.
-- [ ] Restart LangFuse pod.
-- [ ] Confirm previously written trace remains queryable.
+Run from a host inside the staging VNet with AKS access:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SECRET_NAME=${LANGFUSE_SECRET_NAME:-langfuse-secrets} bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+Optional file evidence capture:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_TRACE_SMOKE_ARTIFACT_FILE=/tmp/langfuse-trace-persistence-smoke.jsonl bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+Success criteria:
+
+- Script exits `0`.
+- JSON-line evidence reports `result:"pass"` and `stage:"complete"`.
+- `ingest_http_code` is `200`, `201`, or `202`.
+- `fetch_before_http_code` and `fetch_after_http_code` are `200` for the same `trace_id`.
+
+Failure triage anchors:
+
+- `stage:"credentials"`: `langfuse-public-key`/`langfuse-secret-key` missing in `LANGFUSE_SECRET_NAME`.
+- `stage:"ingest"`: public ingestion auth/endpoint failure.
+- `stage:"fetch_before_restart"`: trace not queryable before rollout restart.
+- `stage:"fetch_after_restart"`: trace not queryable after rollout restart (`deployment/langfuse`).
+
+### DEV-044 executable evidence hooks
+
+PostgreSQL Flexible Server provisioning procedure evidence:
+
+```bash
+bash scripts/infra/ai_agent_infra_dev_apply.sh
+bash scripts/infra/verify_ai_agent_infra_dev.sh
+```
+
+- Attach apply/verify logs and include the PostgreSQL verification `PASS:` output for `nsc-pg-langfuse-dev`.
+
+LangFuse dedicated DB migration-success evidence:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SECRET_NAME=${LANGFUSE_SECRET_NAME:-langfuse-secrets} bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+- Attach the emitted JSON line and include `result:"pass"`, `stage:"complete"`, `ingest_http_code`, `fetch_before_http_code`, and `fetch_after_http_code`.
 
 ## DoD Mapping (Plan -> Evidence Source)
 
@@ -290,11 +331,11 @@ Latest staging evidence (2026-02-24 UTC):
 | DEV-043: internal-only access confirmation | Manual smoke: private-path-only checklist |
 | DEV-043: staging LangFuse UI smoke | Manual smoke evidence |
 | DEV-043: rollback procedure documented | Runbook rollback section below |
-| DEV-044: PostgreSQL Flexible Server provisioning procedure exists | Automated + docs: apply script presence and verification check for `nsc-pg-langfuse-dev` |
-| DEV-044: LangFuse connected to dedicated DB with migration success | Manual smoke evidence |
-| DEV-044: trace persistence after pod restart | Manual smoke: trace persistence checklist |
+| DEV-044: PostgreSQL Flexible Server provisioning procedure exists | Executable evidence hook: `ai_agent_infra_dev_apply.sh` + `verify_ai_agent_infra_dev.sh` logs with PostgreSQL `PASS:` line |
+| DEV-044: LangFuse connected to dedicated DB with migration success | Executable evidence hook: `smoke_langfuse_trace_persistence.sh` JSON line (`result:pass`, `stage:complete`) |
+| DEV-044: trace persistence after pod restart | Manual smoke: `smoke_langfuse_trace_persistence.sh` JSON-line evidence (`result:pass`, `stage:complete`) |
 | DEV-044: DB credentials managed via secrets/Key Vault | Automated: required Key Vault secret-name checks |
-| DEV-044: staging end-to-end trace storage smoke | Manual smoke evidence |
+| DEV-044: staging end-to-end trace storage smoke | Manual smoke: `smoke_langfuse_trace_persistence.sh` evidence (`fetch_before_http_code=200`, `fetch_after_http_code=200`) |
 | DEV-045: private DNS/records defined for OpenAI/Postgres | Automated: private DNS zones + VNet links + private endpoint checks |
 | DEV-045: NSG rules align with network policy | Manual validation evidence |
 | DEV-045: Databricks -> LangFuse -> PostgreSQL private-path smoke | Manual smoke evidence |

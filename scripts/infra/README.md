@@ -22,6 +22,7 @@ This directory contains a minimal Azure CLI provisioning script for AI agent inf
 - `ai_agent_infra_dev_apply.sh`: Idempotent script that ensures required Azure resources exist.
 - `verify_ai_agent_infra_dev.sh`: Verification script that checks expected dev infra resources and hardening state.
 - `smoke_langfuse_internal_ui.sh`: Non-interactive staging VNet internal smoke script for LangFuse UI via `kubectl port-forward`.
+- `smoke_langfuse_trace_persistence.sh`: Non-interactive staging/internal trace persistence + end-to-end trace storage smoke script.
 
 ## What the script ensures
 
@@ -184,3 +185,50 @@ Script behavior:
 - Treats HTTP `200` or `302` as success and exits `0`; all other responses exit non-zero.
 - Emits reproducible evidence (`utc`, `namespace`, `http_code`, `response_sha256`, sanitized `response_summary`) as a JSON line.
 - Applies masking/exclusion rules so token/cookie/set-cookie markers are not emitted in evidence summary.
+
+### Staging/internal trace persistence + e2e trace storage smoke (non-interactive)
+
+Run from a host inside the staging VNet with AKS access:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SECRET_NAME=${LANGFUSE_SECRET_NAME:-langfuse-secrets} bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+Optional evidence file output (JSON line is still printed to stdout):
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_TRACE_SMOKE_ARTIFACT_FILE=/tmp/langfuse-trace-persistence-smoke.jsonl bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+Script behavior:
+
+- Port-forwards to `service/langfuse-internal`.
+- Reads `langfuse-public-key` and `langfuse-secret-key` from `LANGFUSE_SECRET_NAME`.
+- Ingests one trace via `POST /api/public/ingestion` (Basic Auth), fetches it via `GET /api/public/traces/{traceId}`, restarts `deployment/langfuse`, and fetches the same trace again.
+- Emits JSON-line evidence with `result`, `stage`, `trace_id`, and per-stage HTTP codes (`ingest_http_code`, `fetch_before_http_code`, `fetch_after_http_code`).
+
+Success criteria:
+
+- Script exits `0`.
+- JSON artifact has `result:"pass"` and `stage:"complete"`.
+- `ingest_http_code` is `200`, `201`, or `202`.
+- `fetch_before_http_code` and `fetch_after_http_code` are both `200`.
+
+### DEV-044 evidence hooks
+
+PostgreSQL provisioning procedure evidence hook:
+
+```bash
+bash scripts/infra/ai_agent_infra_dev_apply.sh
+bash scripts/infra/verify_ai_agent_infra_dev.sh
+```
+
+- Keep apply/verify stdout in ticket evidence; include the PostgreSQL server verification `PASS:` line for `nsc-pg-langfuse-dev`.
+
+LangFuse migration-success evidence hook:
+
+```bash
+LANGFUSE_NAMESPACE=${LANGFUSE_NAMESPACE:-default} LANGFUSE_SECRET_NAME=${LANGFUSE_SECRET_NAME:-langfuse-secrets} bash scripts/infra/smoke_langfuse_trace_persistence.sh
+```
+
+- Keep the JSON-line artifact and record `result:"pass"`, `stage:"complete"`, `ingest_http_code`, `fetch_before_http_code`, and `fetch_after_http_code` as migration/runtime success evidence.
