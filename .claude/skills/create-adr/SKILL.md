@@ -1,6 +1,6 @@
 ---
 name: create-adr
-description: "ADR (Architecture Decision Record) authoring workflow. Use when a design decision needs to be recorded in docs/adr/YYYYMMDD-HHMM-title.md. Covers identifier assignment, file naming, section templates, and post-ADR checklist. ADR trigger criteria are defined in skills/create-pr/SKILL.md §3."
+description: "ADR (Architecture Decision Record) authoring workflow. Use when a design decision needs to be recorded in docs/adr/YYYYMMDD-HHMM-title.md. Covers identifier assignment, file naming, section templates, and post-ADR checklist. ADR trigger criteria are defined in .claude/skills/create-pr/SKILL.md §3."
 ---
 
 # Create ADR Skill
@@ -12,7 +12,7 @@ description: "ADR (Architecture Decision Record) authoring workflow. Use when a 
 
 ## 1. When to Write an ADR
 
-See **`skills/create-pr/SKILL.md §3`** for the full trigger criteria. In short, write an ADR when:
+See **`.claude/skills/create-pr/SKILL.md §3`** for the full trigger criteria. In short, write an ADR when:
 
 - A design decision diverges from what existing `.specs/` documents specify
 - You chose one approach over multiple valid alternatives and the tradeoff needs to be recorded

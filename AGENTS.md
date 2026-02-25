@@ -12,7 +12,7 @@ Spec-driven delivery workflow: humans define intent and approvals, while agents 
 - `docs/reports/` - Weekly operational reports and progress metrics.
 - `docs/upstream/` - Upstream reference docs. Read-only mirror/reference.
 - `scripts/` - Automation scripts (reporting, checks, utilities).
-- `skills/` - Prompt templates and operational instructions for agent tasks.
+- `.claude/skills/` - Prompt templates and operational instructions for agent tasks.
 - `.github/workflows/` - CI/CD workflows (test, security, drift, automerge, reports).
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.

@@ -48,7 +48,7 @@
   },
   "skills": {
     "paths": [
-      "./skills",
+      "./.claude/skills",
       "./.skills",
       "/home/salee/.agents/skills"
     ]

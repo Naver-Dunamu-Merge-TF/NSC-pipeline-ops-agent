@@ -54,7 +54,7 @@ Sudocode Issue: <issue-id>
 ## 문서 영향
 
 <!-- 이 변경이 영향을 줄 수 있는 .specs/ 파일을 모두 나열한다.
-     ADR 작성 트리거 기준에 해당하면 (skills/create-pr/SKILL.md §3 참고) ADR을 먼저 작성하고 여기에 링크한다. -->
+     ADR 작성 트리거 기준에 해당하면 (.claude/skills/create-pr/SKILL.md §3 참고) ADR을 먼저 작성하고 여기에 링크한다. -->
 
 - `.specs/<file>.md` — <어떤 부분에 영향을 주는지 간략히>
 
@@ -89,7 +89,7 @@ EOF
 
 ## 3. ADR Trigger Criteria
 
-Write `docs/adr/NNNN-title.md` (see `skills/create-adr/SKILL.md` for full authoring guide) and link it in **Document Impact** if any of the following apply:
+Write `docs/adr/NNNN-title.md` (see `.claude/skills/create-adr/SKILL.md` for full authoring guide) and link it in **Document Impact** if any of the following apply:
 
 - A design decision diverges from what existing `.specs/` documents specify
 - You chose one approach over multiple valid alternatives and the tradeoff needs to be recorded
