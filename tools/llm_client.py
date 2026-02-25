@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import time
@@ -14,6 +15,8 @@ RETRYABLE_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 DEFAULT_LLM_DAILY_CAP = 30
 DEFAULT_CHECKPOINT_DB_PATH = "checkpoints/agent.db"
 KST = timezone(timedelta(hours=9))
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(RuntimeError):
@@ -46,12 +49,15 @@ def invoke_llm(
         "CHECKPOINT_DB_PATH", DEFAULT_CHECKPOINT_DB_PATH
     )
 
+    logger.info("Starting LLM logical invocation")
+
     if not _consume_daily_budget(db_path, daily_cap=daily_cap):
         raise LLMDailyCapExceeded(
             f"LLM daily cap reached: {daily_cap} requests for {_today_kst_key()}"
         )
 
     for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+        logger.info("Starting LLM HTTP attempt %d", attempt + 1)
         try:
             response = requester(REQUEST_TIMEOUT_SECONDS)
             status = getattr(response, "status", None)
