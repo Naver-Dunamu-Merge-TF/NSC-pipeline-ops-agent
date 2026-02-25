@@ -675,10 +675,12 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 | LangFuse 비밀키 | Key Vault | `langfuse-secret-key` | dev 키 | staging 키 | prod 키 |
 | Log Analytics DCR ID | Key Vault | `log-analytics-dcr-id` | dev DCR | staging DCR | prod DCR |
 | 실행 모드 | Key Vault | `agent-execute-mode` | `dry-run` (고정) | `dry-run` (고정) | `live` |
-| 체크포인터 경로 | 환경변수 | `CHECKPOINT_DB_PATH` | `checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` |
+| 체크포인터 경로 | 환경변수 | `CHECKPOINT_DB_PATH` | `checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` |
 | LangFuse 호스트 | 환경변수 | `LANGFUSE_HOST` | `http://localhost:3000` | `https://langfuse.internal.nsc.com` | `https://langfuse.internal.nsc.com` |
 | LLM 일일 호출 상한 | 환경변수 | `LLM_DAILY_CAP` | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
 | 대상 파이프라인 목록 | 환경변수 | `TARGET_PIPELINES` | `pipeline_silver` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` |
+
+참고: `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db`의 `nsc_dbw_dev_7405610275478542`는 현재 배포 워크스페이스의 Unity Catalog 식별자이며, 본 범위에서는 serverless 체크포인터 경로 식별자로 의도적으로 사용한다.
 
 #### 배포
 
@@ -773,7 +775,8 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 **SQLite 체크포인터 경로**
 
 Databricks Job 실행 환경에서 `checkpoints/agent.db`를 로컬 경로로 두면 클러스터 재시작 시 유실된다.
-DBFS 영속 경로를 사용하여 Job 재시작 후에도 마지막 체크포인트에서 재개 가능하도록 한다.
+UC Volumes 영속 경로(`/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db`)를 사용하여 Job 재시작 후에도 마지막 체크포인트에서 재개 가능하도록 한다.
+체크포인터 엔진은 기존 SQLite(`langgraph.checkpoint.sqlite.SqliteSaver`)를 그대로 유지하며, 이번 정책은 경로 전환만 다룬다.
 
 **LangGraph 의존성 정책 (ADR-0006/0010/0011)**
 
@@ -784,8 +787,15 @@ DBFS 영속 경로를 사용하여 Job 재시작 후에도 마지막 체크포�
 
 | 환경 | 경로 | 비고 |
 |------|------|------|
-| Databricks (prod/staging) | `/dbfs/mnt/agent-state/checkpoints/agent.db` | DBFS 마운트, 클러스터 재시작 후에도 유지 |
+| Databricks (prod/staging/serverless strict policy) | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` | UC Volumes 경로, 클러스터 재시작 후에도 유지 |
 | 로컬 개발 | `checkpoints/agent.db` | 프로젝트 루트 상대경로 |
+
+**DEV-013 smoke evidence boundary (ADR-260225-1012)**
+
+- 실용(pragmatic) 인프라 스모크(`databricks current-user me`, `databricks fs ls dbfs:/...`)는 워크스페이스 인증/API 경로 접근성 증거로 분리 기록한다(과거 DBFS 경로 확인 이력은 배경 증거로만 유지).
+- 엄격(strict) 런타임 스모크는 Databricks 런타임에서 `CHECKPOINT_DB_PATH=/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db`로 AgentRunner 1회 성공 실행해야 통과한다.
+- 위 strict smoke는 경로 정책 검증이며, 체크포인터 엔진(SQLite) 변경을 요구하지 않는다.
+- 실용 스모크 pass는 엄격 스모크 pass를 의미하지 않는다. 두 증거를 단일 판정으로 합치지 않는다.
 
 경로는 환경변수 `CHECKPOINT_DB_PATH`로 주입한다:
 
@@ -797,7 +807,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 CHECKPOINT_DB_PATH = os.environ.get(
     "CHECKPOINT_DB_PATH",
     "checkpoints/agent.db"           # 로컬 기본값
-    # Databricks: "/dbfs/mnt/agent-state/checkpoints/agent.db"
+    # Databricks: "/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db"
 )
 checkpointer = SqliteSaver.from_conn_string(CHECKPOINT_DB_PATH)
 graph = build_graph(checkpointer=checkpointer)
@@ -1505,7 +1515,7 @@ project/
 | # | 항목 | 현재 대응 | 향후 목표 | 비고 |
 |---|------|----------|----------|------|
 | 1 | **SLA/SLO/RTO/RPO 정의** | 감지 임계값·승인 타임아웃은 정의됨 | 파이프라인별 RTO/RPO 표 + Sev 등급 매트릭스 | 운영 데이터 축적 후 현실적 목표 설정 |
-| 2 | **체크포인터 내구성 강화** | SQLite (DBFS/볼륨에 저장) | Delta 테이블 또는 외부 DB 기반 체크포인터 | 중간안: DBFS 영속 경로에 SQLite 배치 + 백업 스크립트 |
+| 2 | **체크포인터 내구성 강화** | SQLite (UC Volumes 저장, serverless 운영 기본) | Delta 테이블 또는 외부 DB 기반 체크포인터 | DBFS 경로 사용은 과거 전환 이력(배경)이며 현재 기본은 UC Volumes |
 | 3 | **단일 인스턴스 이중화** | heartbeat 감시 + 수동 복구 | Primary/Secondary 잡 + leader election | 에이전트가 보조 도구인 현 단계에서는 SPOF 허용 |
 | 4 | **감사로그 불변성** | LangFuse(PostgreSQL) + Log Analytics | append-only Delta 테이블 또는 Immutable Storage 이중 기록 | Log Analytics의 변경 불가 정책 확인 후 결정 |
 | 5 | **운영 런북/RACI** | 알림 이벤트 타입 + 승인 필드 정의 | 이벤트별 체크리스트 + 역할/RACI 표 | 운영팀과 공동 작성 필요 |
