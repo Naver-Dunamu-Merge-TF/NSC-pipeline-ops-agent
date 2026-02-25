@@ -296,12 +296,16 @@ Success criteria:
 - `ingest_http_code` is `200`, `201`, or `202`.
 - `fetch_before_http_code` and `fetch_after_http_code` are `200` for the same `trace_id`.
 
-Failure triage anchors:
+Failure triage anchors (all failure branches emit `result:"fail"` and their respective `stage` via JSON artifact):
 
+- `stage:"secret_retrieval"`: unable to read `LANGFUSE_SECRET_NAME`.
 - `stage:"credentials"`: `langfuse-public-key`/`langfuse-secret-key` missing in `LANGFUSE_SECRET_NAME`.
+- `stage:"port_forward"`: `kubectl port-forward` failed to become ready.
 - `stage:"ingest"`: public ingestion auth/endpoint failure.
-- `stage:"fetch_before_restart"`: trace not queryable before rollout restart.
-- `stage:"fetch_after_restart"`: trace not queryable after rollout restart (`deployment/langfuse`).
+- `stage:"fetch_before_restart"`: trace not queryable before rollout restart (after bounded retry/poll).
+- `stage:"rollout_restart"`: `kubectl rollout restart` failed.
+- `stage:"rollout_status"`: `kubectl rollout status` failed or timed out.
+- `stage:"fetch_after_restart"`: trace not queryable after rollout restart (after bounded retry/poll).
 
 ### DEV-044 executable evidence hooks
 

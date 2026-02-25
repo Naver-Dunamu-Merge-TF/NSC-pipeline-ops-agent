@@ -204,8 +204,8 @@ Script behavior:
 
 - Port-forwards to `service/langfuse-internal`.
 - Reads `langfuse-public-key` and `langfuse-secret-key` from `LANGFUSE_SECRET_NAME`.
-- Ingests one trace via `POST /api/public/ingestion` (Basic Auth), fetches it via `GET /api/public/traces/{traceId}`, restarts `deployment/langfuse`, and fetches the same trace again.
-- Emits JSON-line evidence with `result`, `stage`, `trace_id`, and per-stage HTTP codes (`ingest_http_code`, `fetch_before_http_code`, `fetch_after_http_code`).
+- Ingests one trace via `POST /api/public/ingestion` (Basic Auth), fetches it via `GET /api/public/traces/{traceId}` using bounded retry/poll to tolerate ingestion delays, restarts `deployment/langfuse`, and fetches the same trace again (also using bounded retry/poll).
+- Emits JSON-line evidence with `result`, `stage` (present on all failure branches for diagnostic context), `trace_id`, and per-stage HTTP codes (`ingest_http_code`, `fetch_before_http_code`, `fetch_after_http_code`).
 
 Success criteria:
 

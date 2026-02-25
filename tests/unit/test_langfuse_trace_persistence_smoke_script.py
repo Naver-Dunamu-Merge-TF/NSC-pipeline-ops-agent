@@ -372,3 +372,86 @@ def test_trace_persistence_smoke_emits_artifact_when_rollout_status_fails(
     artifact = _parse_artifact(result.stdout)
     assert artifact["result"] == "fail"
     assert artifact["stage"] == "rollout_status"
+
+
+def test_trace_persistence_smoke_emits_artifact_when_credentials_missing(
+    tmp_path: Path,
+) -> None:
+    result = _run_script(
+        tmp_path,
+        curl_codes="",
+        curl_bodies="",
+        expected_auth="pk-dev:sk-dev",
+        public_key="\n",
+        secret_key="\n",
+    )
+
+    assert result.returncode == 1
+    artifact = _parse_artifact(result.stdout)
+    assert artifact["result"] == "fail"
+    assert artifact["stage"] == "credentials"
+
+
+def test_trace_persistence_smoke_emits_artifact_when_port_forward_fails(
+    tmp_path: Path,
+) -> None:
+    result = _run_script(
+        tmp_path,
+        curl_codes="000,000",
+        curl_bodies="|",
+        expected_auth="pk-dev:sk-dev",
+        public_key="pk-dev",
+        secret_key="sk-dev",
+        extra_env={
+            "PORT_FORWARD_READY_TIMEOUT_SECONDS": "1",
+            "PORT_FORWARD_READY_POLL_SECONDS": "1",
+            "LANGFUSE_SMOKE_TIMEOUT_SECONDS": "1",
+        },
+    )
+
+    assert result.returncode == 1
+    artifact = _parse_artifact(result.stdout)
+    assert artifact["result"] == "fail"
+    assert artifact["stage"] == "port_forward"
+
+
+def test_trace_persistence_smoke_emits_artifact_when_ingest_fails(
+    tmp_path: Path,
+) -> None:
+    result = _run_script(
+        tmp_path,
+        curl_codes="200,500",
+        curl_bodies="ready|",
+        expected_auth="pk-dev:sk-dev",
+        public_key="pk-dev",
+        secret_key="sk-dev",
+    )
+
+    assert result.returncode == 1
+    artifact = _parse_artifact(result.stdout)
+    assert artifact["result"] == "fail"
+    assert artifact["stage"] == "ingest"
+    assert artifact["ingest_http_code"] == 500
+
+
+def test_trace_persistence_smoke_emits_artifact_when_fetch_before_restart_fails(
+    tmp_path: Path,
+) -> None:
+    result = _run_script(
+        tmp_path,
+        curl_codes="200,202,404,404",
+        curl_bodies='ready|{"success":true}|{"error":"missing"}|{"error":"missing"}',
+        expected_auth="pk-dev:sk-dev",
+        public_key="pk-dev",
+        secret_key="sk-dev",
+        extra_env={
+            "LANGFUSE_TRACE_FETCH_RETRIES": "2",
+            "LANGFUSE_TRACE_FETCH_RETRY_INTERVAL_SECONDS": "0",
+        },
+    )
+
+    assert result.returncode == 1
+    artifact = _parse_artifact(result.stdout)
+    assert artifact["result"] == "fail"
+    assert artifact["stage"] == "fetch_before_restart"
+    assert artifact["fetch_before_http_code"] == 404
