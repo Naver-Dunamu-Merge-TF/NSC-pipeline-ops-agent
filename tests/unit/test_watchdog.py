@@ -59,3 +59,14 @@ def test_run_once_uses_target_pipelines_from_runtime_settings(caplog) -> None:
     assert result["target_pipelines"] == ["pipeline_silver", "pipeline_a"]
     assert result["polled_pipelines"] == ["pipeline_silver"]
     assert "watchdog heartbeat: normal" in caplog.text
+
+
+def test_pipelines_to_poll_logs_warning_and_skips_unknown_pipeline(caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        result = watchdog.pipelines_to_poll(
+            target_pipelines=["pipeline_silver", "unknown_pipeline"],
+            now_utc=datetime(2026, 2, 25, 15, 11, tzinfo=timezone.utc),
+        )
+
+    assert result == ["pipeline_silver"]
+    assert "Unknown target pipeline skipped: unknown_pipeline" in caplog.text
