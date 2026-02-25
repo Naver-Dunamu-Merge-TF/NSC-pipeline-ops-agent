@@ -6,7 +6,7 @@
 
 ## Status
 
-PendingReview
+Confirmed
 
 ## Context
 
@@ -14,8 +14,8 @@ DEV-019의 구현 범위는 watchdog polling 단계에서 TARGET_PIPELINES에 �
 
 ## Decision
 
-watchdog polling에서 알 수 없는 TARGET_PIPELINES 항목은 별도 경고 로그 없이 해당 항목만 비치명적으로 건너뛰는 기본 동작을 적용하기로 결정한다.
+watchdog polling에서 알 수 없는 TARGET_PIPELINES 항목은 경고 로그(`Unknown target pipeline skipped: <pipeline>`)를 남기고, 해당 항목만 비치명적으로 건너뛰는 `warning+skip` 기본 동작을 적용한다.
 
 ## Rationale
 
-대안으로는 즉시 실패(fail-fast), 경고 후 건너뛰기(warning+skip), 무음 건너뛰기(silent-skip)를 검토했다. fail-fast는 잘못된 설정을 빠르게 드러내는 장점이 있지만 DEV-019의 저영향 범위에서 단일 오입력으로 전체 polling을 중단시켜 운영 가용성을 과도하게 해친다. warning+skip는 원인 가시성 측면에서는 유리하지만 현재 구현 동작과 일치하지 않는다. silent-skip는 미지원 항목만 제외하고 나머지 대상을 계속 수집해 polling 연속성을 유지하며, 실제 runtime/watchdog.py의 동작을 가장 정확히 반영하므로 구현 정합성 기준에서 채택했다.
+대안으로는 즉시 실패(fail-fast), 경고 후 건너뛰기(warning+skip), 무음 건너뛰기(silent-skip)를 검토했다. fail-fast는 잘못된 설정을 빠르게 드러내지만 단일 오입력으로 전체 polling을 중단시켜 운영 가용성을 과도하게 해친다. silent-skip는 가용성은 유지하지만 설정 오류의 원인 가시성이 부족해 운영 탐지 시간이 길어진다. warning+skip는 polling 연속성(availability)을 유지하면서도 경고 로그로 원인 가시성(visibility)을 확보해 운영 트레이드오프를 가장 균형 있게 만족하므로 최종 정책으로 채택한다.

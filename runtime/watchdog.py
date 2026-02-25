@@ -43,6 +43,7 @@ def pipelines_to_poll(
 
         daily_config = getattr(config.pipelines, pipeline, None)
         if daily_config is None:
+            _LOGGER.warning("Unknown target pipeline skipped: %s", pipeline)
             continue
 
         poll_after_kst = getattr(daily_config, "poll_after_kst", None)
