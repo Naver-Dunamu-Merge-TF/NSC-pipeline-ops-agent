@@ -91,6 +91,75 @@ databricks jobs submit --no-wait --json '{
 - Record run id, cluster/runtime identifier, and the exact error. Keep follow-up action explicit.
 - `/dbfs` path failures are transition/background context only (legacy behavior), not the strict smoke default.
 
+### DEV-019 watchdog serverless smoke lessons learned (draft)
+
+Mandatory execution policy:
+
+- Use Databricks **Serverless** only for this smoke.
+- Do not pin or reuse a fixed classic cluster id for DEV-019 smoke.
+
+Why this policy exists:
+
+- Previous attempts with cluster-style fields (`job_clusters`, `job_cluster_key`, `spark_env_vars`, `spark_conf`) caused `unknown field` and runtime failures in `jobs submit`.
+- Serverless execution with `tasks[].environment_key` + `environments[]` is the stable pattern for this smoke path.
+
+Required submit shape (minimum):
+
+```json
+{
+  "run_name": "dev019_smoke_test_serverless",
+  "tasks": [
+    {
+      "task_key": "watchdog_smoke_serverless",
+      "environment_key": "smoke_serverless",
+      "spark_python_task": {
+        "python_file": "/Users/<user>/smoke_dev019/smoke_wrapper.py",
+        "source": "WORKSPACE",
+        "parameters": [
+          "--target-pipelines",
+          "pipeline_silver",
+          "--langfuse-host",
+          "http://localhost:3000"
+        ]
+      }
+    }
+  ],
+  "environments": [
+    {
+      "environment_key": "smoke_serverless",
+      "spec": {
+        "client": "1",
+        "dependencies": [
+          "PyYAML==6.0.3",
+          "pydantic==2.12.5",
+          "langgraph==1.0.9",
+          "langgraph-checkpoint-sqlite==3.0.3"
+        ]
+      }
+    }
+  ]
+}
+```
+
+Wrapper implementation guardrails:
+
+- Do not depend on `__file__` in Databricks Python task context.
+- Bootstrap `sys.path` with workspace root + `src` fallback explicitly.
+- Parse `spark_python_task.parameters` and map them to runtime env (`TARGET_PIPELINES`, `LANGFUSE_HOST`).
+- Do not finish wrapper with `raise SystemExit(0)`; Databricks may classify it as failed even when exit code is zero.
+
+Polling and timeout standard (operator evidence):
+
+- Poll `databricks jobs get-run <run_id>` every 20 seconds.
+- Use a hard timeout of 15 minutes (900 seconds).
+- Keep timestamped polling lines in evidence (`status`, `result_state`, elapsed seconds).
+
+Success criteria:
+
+- Parent run and task run both end as `TERMINATED` + `result_state=SUCCESS`.
+- `get-run-output` has no `error` field.
+- Attach `run_id`, `task_run_id`, polling log, and output JSON to ticket/PR note.
+
 ### Databricks real-environment secret smoke (ADR-0015)
 
 Secret resolution convention to verify:
