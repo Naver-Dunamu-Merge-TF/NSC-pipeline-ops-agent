@@ -37,8 +37,16 @@
 |---------|------------------------|-----------|-----|---------|------|
 | `TARGET_PIPELINES` | `TARGET_PIPELINES` | 필수 | `pipeline_silver` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` | `pipeline_silver,pipeline_b,pipeline_c,pipeline_a` |
 | `LANGFUSE_HOST` | `LANGFUSE_HOST` | 필수 | `http://localhost:3000` | `https://langfuse.internal.nsc.com` | `https://langfuse.internal.nsc.com` |
-| `CHECKPOINT_DB_PATH` | `CHECKPOINT_DB_PATH` | 선택 (미지정 시 기본값) | `checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` | `/dbfs/mnt/agent-state/checkpoints/agent.db` |
+| `CHECKPOINT_DB_PATH` | `CHECKPOINT_DB_PATH` | 선택 (미지정 시 기본값) | `checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` | `/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` |
 | `LLM_DAILY_CAP` | `LLM_DAILY_CAP` | 선택 (미지정 시 `30`) | `30` (기본, 필요 시 override) | `30` (기본, 필요 시 override) | `30` (기본, 운영에서 조정) |
+
+ADR-260225-1012 경계 정책:
+
+- Databricks(prod/staging/serverless strict policy) 운영 기본 경로는 `CHECKPOINT_DB_PATH=/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db`로 고정한다. 로컬 개발 기본값은 `checkpoints/agent.db`를 유지한다.
+- 경로의 `nsc_dbw_dev_7405610275478542` 토큰은 현재 배포 워크스페이스의 Unity Catalog 식별자이며, 본 범위에서는 serverless 체크포인터 경로 식별자로 의도적으로 사용한다.
+- 체크포인터 엔진은 기존과 동일하게 SQLite(`SqliteSaver`)를 유지하며, 이번 변경은 경로 정책 전환만 다룬다.
+- `CHECKPOINT_DB_PATH` 검증 증거는 `pragmatic`(Databricks auth/DBFS API)와 `strict`(런타임 `/Volumes/.../agent.db` 경로로 AgentRunner 1회 성공 실행)로 분리 기록한다.
+- `databricks fs ls dbfs:/mnt/agent-state/checkpoints`는 과거 DBFS 경로 접근성 확인용 배경 증거로만 보관하며 strict smoke 완료 근거로 사용하지 않는다.
 
 ### DEV-012 fingerprint smoke 입력 경로 정책 (ADR-0027)
 

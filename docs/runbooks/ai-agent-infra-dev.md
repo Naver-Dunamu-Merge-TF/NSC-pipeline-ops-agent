@@ -58,6 +58,39 @@ Expected result:
 
 These checks are intentionally manual and should be attached as operator evidence (ticket comment, run log path, screenshots, or CLI output snippets).
 
+### DEV-013 checkpoint strict smoke boundary (ADR-260225-1012)
+
+- `DEV-013-INFRA-SMOKE` evidence has two layers and both must be recorded explicitly.
+- Pragmatic smoke: Databricks auth + `databricks fs ls "dbfs:/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints"` UC Volumes reachability evidence.
+- Strict runtime smoke: execute one AgentRunner smoke inside Databricks runtime/equivalent where Unity Catalog volume access is available, passing `--checkpoint-db-path /Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db` as the runtime input that enforces the CHECKPOINT_DB_PATH policy.
+
+```bash
+RUNTIME_SMOKE_SCRIPT=/Workspace/Users/2dt026@msacademy.msai.kr/.bundle/data-pipeline/dev/files/scripts/i_qva6_checkpoint_path_smoke.py
+databricks jobs submit --no-wait --json '{
+  "run_name": "dev013-strict-smoke-serverless",
+  "tasks": [{
+    "task_key": "strict_smoke_serverless",
+    "environment_key": "smoke_serverless",
+    "spark_python_task": {
+      "python_file": "'"$RUNTIME_SMOKE_SCRIPT"'",
+      "source": "WORKSPACE",
+      "parameters": ["--checkpoint-db-path", "/Volumes/nsc_dbw_dev_7405610275478542/default/agent_state_checkpoints/agent.db"]
+    }
+  }],
+  "environments": [{
+    "environment_key": "smoke_serverless",
+    "spec": {"environment_version": "2"}
+  }]
+}'
+```
+- Do not treat pragmatic smoke pass as strict smoke pass. Keep separate verdicts in evidence.
+- If strict run fails, triage in this order:
+  - permission
+  - path existence
+  - run output
+- Record run id, cluster/runtime identifier, and the exact error. Keep follow-up action explicit.
+- `/dbfs` path failures are transition/background context only (legacy behavior), not the strict smoke default.
+
 ### Databricks real-environment secret smoke (ADR-0015)
 
 Secret resolution convention to verify:
