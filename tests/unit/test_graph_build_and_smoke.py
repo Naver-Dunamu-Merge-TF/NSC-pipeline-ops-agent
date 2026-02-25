@@ -58,6 +58,29 @@ def test_graph_smoke_invoke_no_issues_returns_without_error() -> None:
     assert result["pipeline_states"] == {}
 
 
+def test_graph_scenario_e_ends_without_llm_calls(monkeypatch) -> None:
+    def _unexpected_call(_state):
+        raise AssertionError("LLM path node should not run for normal detect scenario")
+
+    monkeypatch.setattr(graph_module.analyze, "run", _unexpected_call)
+    monkeypatch.setattr(graph_module.triage, "run", _unexpected_call)
+
+    graph = build_graph()
+
+    result = graph.invoke(
+        {
+            "incident_id": "inc-normal-1",
+            "pipeline": "pipeline_silver",
+            "run_id": "run-normal-1",
+            "detected_at": "2026-02-23T00:00:00+00:00",
+            "fingerprint": "fp-normal-1",
+        }
+    )
+
+    assert result["detected_issues"] == []
+    assert "final_status" not in result
+
+
 def test_graph_smoke_cutoff_delay_routes_to_report_only() -> None:
     graph = build_graph()
 

@@ -38,6 +38,22 @@ def test_make_fingerprint_is_order_invariant_for_detected_issues() -> None:
     assert first == second
 
 
+def test_make_fingerprint_is_order_invariant_for_mixed_issue_payloads() -> None:
+    issues_a = [
+        {"severity": "critical", "type": "failure", "details": {"code": "E1"}},
+        {"type": "critical_dq", "severity": "critical", "tags": ["SOURCE_STALE"]},
+    ]
+    issues_b = [
+        {"tags": ["SOURCE_STALE"], "severity": "critical", "type": "critical_dq"},
+        {"details": {"code": "E1"}, "type": "failure", "severity": "critical"},
+    ]
+
+    first = make_fingerprint("pipeline_silver", "run-42", issues_a)
+    second = make_fingerprint("pipeline_silver", "run-42", issues_b)
+
+    assert first == second
+
+
 def test_make_fingerprint_handles_empty_detected_issues() -> None:
     fp = make_fingerprint("pipeline_silver", None, [])
 

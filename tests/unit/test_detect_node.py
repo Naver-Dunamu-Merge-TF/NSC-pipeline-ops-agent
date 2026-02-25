@@ -54,6 +54,63 @@ def test_detect_classifies_trigger_priority_in_spec_order() -> None:
     ]
 
 
+def test_detect_identifies_cutoff_delay_only_scenario() -> None:
+    state = _base_state()
+    state["pipeline_states"]["pipeline_silver"]["last_success_ts"] = (
+        "2026-02-18T15:09:59+00:00"
+    )
+
+    result = detect.run(state)
+
+    assert result["detected_issues"] == [
+        {"type": "cutoff_delay", "severity": "warning"}
+    ]
+
+
+def test_detect_identifies_failure_only_scenario() -> None:
+    state = _base_state()
+    state["pipeline_states"]["pipeline_silver"]["status"] = "failure"
+
+    result = detect.run(state)
+
+    assert result["detected_issues"] == [{"type": "failure", "severity": "critical"}]
+
+
+def test_detect_identifies_critical_dq_only_scenario() -> None:
+    state = _base_state()
+    state["dq_status"] = [
+        {
+            "severity": "CRITICAL",
+            "dq_tag": "SOURCE_STALE",
+            "source_table": "bronze.orders",
+        }
+    ]
+
+    result = detect.run(state)
+
+    assert result["detected_issues"] == [
+        {"type": "critical_dq", "severity": "critical"}
+    ]
+
+
+def test_detect_identifies_new_exception_only_scenario() -> None:
+    state = _base_state()
+    state["exception_ledger"] = [
+        {
+            "domain": "dq",
+            "severity": "CRITICAL",
+            "exception_type": "SchemaViolation",
+            "is_new": True,
+        }
+    ]
+
+    result = detect.run(state)
+
+    assert result["detected_issues"] == [
+        {"type": "new_exception", "severity": "critical"}
+    ]
+
+
 def test_detect_cutoff_delay_boundary_is_strictly_greater_than_threshold() -> None:
     state = _base_state()
     state["detected_at"] = "2026-02-18T15:40:00+00:00"
