@@ -18,7 +18,7 @@
 | Databricks API 토큰 | `databricks-agent-token` | 개인 PAT | 서비스 계정 토큰 | 서비스 계정 토큰 |
 | Azure OpenAI API 키 | `azure-openai-api-key` | dev 배포 키 | staging 배포 키 | prod 배포 키 |
 | Azure OpenAI 엔드포인트 | `azure-openai-endpoint` | dev 리전 엔드포인트 | staging 리전 엔드포인트 | prod 리전 엔드포인트 |
-| Azure OpenAI 배포명 | `azure-openai-deployment` | `gpt-4o-dev` | `gpt-4o-staging` | `gpt-4o` |
+| Azure OpenAI 배포명 | `azure-openai-deployment` | `gpt-5.2-dev` | `gpt-5.2-staging` | `gpt-5.2` |
 | LangFuse 공개키 | `langfuse-public-key` | dev 키 | staging 키 | prod 키 |
 | LangFuse 비밀키 | `langfuse-secret-key` | dev 키 | staging 키 | prod 키 |
 | Log Analytics DCR ID | `log-analytics-dcr-id` | dev DCR | staging DCR | prod DCR |

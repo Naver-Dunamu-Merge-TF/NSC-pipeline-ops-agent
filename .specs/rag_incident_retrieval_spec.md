@@ -338,7 +338,7 @@ class SimilarIncident:
 |------|------|------|
 | 서버 | LangFuse PostgreSQL Flexible Server (B1ms) | 변경 없음 |
 | DB extension | 없음 | `pgvector` 활성화 (DDL 1줄) |
-| Azure OpenAI | gpt-4o deployment 존재 | `text-embedding-3-small` deployment 추가 |
+| Azure OpenAI | gpt-5.2 deployment 존재 | `text-embedding-3-small` deployment 추가 |
 | Python 의존성 | - | `pgvector>=0.2.0`, `psycopg2-binary>=2.9` |
 
 Azure Database for PostgreSQL Flexible Server는 `pgvector`를 공식 extension으로 지원.

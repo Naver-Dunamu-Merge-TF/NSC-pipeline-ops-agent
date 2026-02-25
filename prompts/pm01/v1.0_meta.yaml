@@ -1,5 +1,5 @@
 id: pm01_postmortem
 version: v1.0
-model: gpt-4o
+model: gpt-5.2
 temperature: 0.3
 description: 장애 대응 완료 후 포스트모템 초안 생성

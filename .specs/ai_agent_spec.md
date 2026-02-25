@@ -654,7 +654,7 @@ Databricks scope 선택 우선순위:
 | LangFuse 비밀키 | `langfuse-secret-key` | Trace 수집 |
 | Azure OpenAI API 키 | `azure-openai-api-key` | LLM 호출 |
 | Azure OpenAI 엔드포인트 | `azure-openai-endpoint` | 리전 엔드포인트 |
-| Azure OpenAI 배포명 | `azure-openai-deployment` | 모델 배포 선택 (예: gpt-4o) |
+| Azure OpenAI 배포명 | `azure-openai-deployment` | 모델 배포 선택 (예: gpt-5.2) |
 | Log Analytics DCR ID | `log-analytics-dcr-id` | 알림 로그 전송 (Data Collection Rule) |
 | 실행 모드 | `agent-execute-mode` | dry-run / live 전환 |
 
@@ -670,7 +670,7 @@ Key Vault 시크릿은 런타임에 로드하고, 환경변수는 Databricks Job
 | Databricks API 토큰 | Key Vault | `databricks-agent-token` | 개인 PAT | 서비스 계정 토큰 | 서비스 계정 토큰 |
 | Azure OpenAI API 키 | Key Vault | `azure-openai-api-key` | dev 배포 | staging 배포 | prod 배포 |
 | Azure OpenAI 엔드포인트 | Key Vault | `azure-openai-endpoint` | dev 리전 | staging 리전 | prod 리전 |
-| Azure OpenAI 배포명 | Key Vault | `azure-openai-deployment` | `gpt-4o-dev` | `gpt-4o-staging` | `gpt-4o` |
+| Azure OpenAI 배포명 | Key Vault | `azure-openai-deployment` | `gpt-5.2-dev` | `gpt-5.2-staging` | `gpt-5.2` |
 | LangFuse 공개키 | Key Vault | `langfuse-public-key` | dev 키 | staging 키 | prod 키 |
 | LangFuse 비밀키 | Key Vault | `langfuse-secret-key` | dev 키 | staging 키 | prod 키 |
 | Log Analytics DCR ID | Key Vault | `log-analytics-dcr-id` | dev DCR | staging DCR | prod DCR |
@@ -1344,7 +1344,7 @@ Judge 프롬프트는 케이스별로 **채점 기준(rubric)**을 포함한다.
 |------|------|------|
 | 언어 | Python | — |
 | 에이전트 오케스트레이션 | **LangGraph** | 상태 그래프, HITL interrupt, 체크포인터 |
-| LLM | Azure OpenAI (gpt-4o 배포) | 분석/트리아지 생성 |
+| LLM | Azure OpenAI (gpt-5.2 배포) | 분석/트리아지 생성 |
 | LLMOps 관측성 | **LangFuse** (Self-Hosted) | Trace 수집, 시각화, 비용 추적 |
 | 프롬프트 관리 | YAML + 텍스트 파일 + Git | 버전 관리 |
 | 품질 평가 | pytest + LLM-as-a-Judge | Eval Runner (Deterministic + Judge 채점) |

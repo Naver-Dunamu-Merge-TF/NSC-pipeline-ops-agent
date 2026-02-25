@@ -48,7 +48,7 @@ def test_load_prompt_returns_active_version_text_and_meta() -> None:
 
     assert prompt.prompt_id == "dq01_bad_records"
     assert prompt.version == "v1.0"
-    assert prompt.model == "gpt-4o"
+    assert prompt.model == "gpt-5.2"
     assert prompt.temperature == 0.2
     assert "JSON 외 다른 텍스트를 출력하지 않는다." in prompt.text
 
@@ -89,7 +89,7 @@ def test_load_prompt_reads_model_and_temperature_only_from_meta(tmp_path: Path) 
 prompts:
   dq01_bad_records:
     active_version: "v1.0"
-    model: "gpt-4.1"
+    model: "gpt-5.2-ignored"
     temperature: 0.9
     description: "test"
 """.strip(),
@@ -99,7 +99,7 @@ prompts:
     (prompts_dir / "dq01" / "v1.0_meta.yaml").write_text(
         """
 version: "v1.0"
-model: "gpt-4o"
+model: "gpt-5.2"
 temperature: 0.2
 """.strip(),
         encoding="utf-8",
@@ -110,5 +110,5 @@ temperature: 0.2
         prompts_root=prompts_dir,
     )
 
-    assert prompt.model == "gpt-4o"
+    assert prompt.model == "gpt-5.2"
     assert prompt.temperature == 0.2
