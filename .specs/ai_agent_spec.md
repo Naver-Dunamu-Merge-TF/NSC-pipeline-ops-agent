@@ -1,7 +1,7 @@
 # AI Agent Spec
 
 > **프로젝트**: NSC 결제/정산 데이터 플랫폼 — 파이프라인 장애 자동 대응 에이전트
-> **최종 수정일**: 2026-02-25
+> **최종 수정일**: 2026-02-26
 
 ---
 
@@ -55,7 +55,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 | 새벽 배치 실패 | 아침까지 미분석 상태 대기 | 에이전트가 즉시 분석 → 아침 출근 시 결과 대기 중 |
 | 아침 대응 시작 | 로그 확인 → bad_records 쿼리 → 패턴 해석 → 판단 (~20분) | 분석 결과 읽고 승인/거부 (~2분) |
 
-→ "진단에 쓰는 시간"을 거의 제거. 단, 승인 대기 시간(최대 60분)이 여전히 병목이므로 전체 MTTR에 대한 공격적 수치는 제시하지 않는다.
+→ "진단에 쓰는 시간"을 거의 제거. 승인은 출근 후 약 2분 내 처리되므로, 실제 MTTR 단축은 새벽 분석 자동화에서 발생한다. 승인 게이트는 최대 12시간 대기하므로 아침 출근 전 타임아웃 없이 ActionPlan이 유지된다.
 
 #### ② 지식 비대칭 해소
 
@@ -128,7 +128,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
   │
   ├─ 거부 → [report_only] 리포트 로그 기록 → END
   ├─ 수정 → action_plan 갱신 후 다시 propose
-  ├─ 타임아웃(60분) → 에스컬레이션 상태 저장 → END
+  ├─ 타임아웃(12시간) → 에스컬레이션 상태 저장 → END
   │
   └─ 승인 ↓
 
@@ -159,7 +159,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 | interrupt | approve | execute | 승인 → 실행 |
 | interrupt | reject | report_only → END | 거부 → 리포트 로그 기록 |
 | interrupt | modify | propose | 파라미터 수정 후 재제안 |
-| interrupt | timeout (60분 무응답) | END | `final_status = "escalated"` 저장 + 에스컬레이션 알림 |
+| interrupt | timeout (12시간 무응답) | END | `final_status = "escalated"` 저장 + 에스컬레이션 알림 |
 | verify | 검증 통과 (`final_status = "resolved"`) | **postmortem** → END | **자동 포스트모템** — 장애 대응 전체 과정을 LLM으로 초안 생성 후 완료 |
 | verify | blocking 검증 실패 (#1: 잡 상태 불일치) | END | `final_status = "escalated"` 기록 + 즉시 에스컬레이션 (롤백 없음) |
 | verify | blocking 검증 실패 (#2/#3/#5) | rollback → END | 롤백 + 에스컬레이션 |
@@ -168,7 +168,7 @@ NSC 메달리온 아키텍처(Bronze → Silver → Gold)의 파이프라인 장
 **LangGraph 의존성/실행 정책**:
 
 - `graph/build_graph()`는 `langgraph` 패키지가 설치된 정식 의존성 경로를 기본으로 사용한다.
-- 의존성 설치 경로 SSOT는 저장소 루트 `requirements.txt`이며, 로컬/CI 모두 `python -m pip install -r requirements.txt`를 사용한다.
+- 의존성 설치 경로 SSOT는 저장소 루트 `requirements.txt`(런타임) / `requirements-dev.txt`(로컬/CI)이며, 로컬/CI는 `.venv/bin/python -m pip install -r requirements-dev.txt`를 사용한다. (`requirements-dev.txt`는 `-r requirements.txt`를 포함한다.)
 - fallback shim은 의존성 미설치 환경의 최소 실행 호환을 위해 유지하되, 정식 경로(import gate + L2 test) 안정성 창(2~4주)이 충족되기 전에는 shim 축소/strict failover 전환을 보류한다.
 
 ### 2.2 상태 스키마
@@ -185,11 +185,11 @@ class ActionPlan(TypedDict):
 
 class AgentState(TypedDict):
     # ── 사건 식별 (중복 방지 + 감사 추적) ──
-    incident_id: str                   # entrypoint/watchdog에서 graph.invoke 전에 생성
+    incident_id: str                   # "inc-{sha256[:16]}" — entrypoint/watchdog에서 graph.invoke 전에 생성 (utils/incident.py make_incident_id)
     pipeline: str                      # 대상 파이프라인명
     run_id: Optional[str]              # 원본 실행 ID
     detected_at: str                   # 감지 시각 (UTC ISO8601)
-    fingerprint: Optional[str]         # SHA256(pipeline + run_id + canonical(detected_issues)) — 동일 장애 재처리 방지
+    fingerprint: Optional[str]         # SHA256(pipeline + run_id + canonical(detected_issues)) — 64자 hex, 동일 장애 재처리 방지 (utils/incident.py make_fingerprint)
     fingerprint_duplicate: Optional[bool] # (ADR-260225-1347) True일 경우 detect 노드가 즉시 스킵됨
 
     # ── 감지 ──
@@ -209,7 +209,7 @@ class AgentState(TypedDict):
     # ── 조치 (단일 진실원천: action_plan) ──
     action_plan: Optional[ActionPlan]  # propose/execute 모두 이 필드만 참조
     approval_requested_ts: Optional[str]  # propose에서 승인 요청 시각 기록 (UTC ISO8601)
-    human_decision: Optional[str]      # "approve" | "reject" | "modify"
+    human_decision: Optional[str]      # "approve" | "reject" | "modify" | "timeout"
     human_decision_by: Optional[str]   # 승인자 ID (감사 추적용)
     human_decision_ts: Optional[str]   # 승인 시각 (UTC ISO8601)
     modified_params: Optional[dict]    # modify 시 변경된 파라미터 (diff 추적용)
@@ -433,6 +433,31 @@ Silver 파이프라인이 `enforce_bad_records_rate`로 fail-fast했을 때, 불
 - 절단 규칙: 상한 초과 문자열은 뒤를 잘라 `...`를 붙인다(상한이 3 이하인 경우 접미사 없이 단순 절단)
 - 결정성 규칙: 유형 정렬은 `count desc -> source_table asc -> field asc -> reason asc` 순으로 고정한다.
 
+**`bad_records_summary` 출력 스키마** (`tools/bad_records_summarizer.py` 기준):
+
+```python
+{
+    "total_records": int,          # 전체 불량 레코드 수
+    "type_count": int,             # 집계된 위반 유형 수 (캡 적용 전)
+    "types_truncated": bool,       # type_count > 50이면 True
+    "types": [
+        {
+            "source_table": str,   # 최대 80자 (초과 시 '...' 절단)
+            "field": str,          # 최대 80자
+            "reason": str,         # 최대 160자
+            "count": int,
+            "samples_truncated": bool,  # 샘플 수가 10개 초과였으면 True
+            "samples": [
+                {"record_json": str}    # 최대 240자
+            ]
+        },
+        # ...
+    ]
+}
+```
+
+유형 정렬: `count desc → source_table asc → field asc → reason asc` (결정적 순서).
+
 **상한 적정성 검증 기준(운영 추적용)**:
 
 - 경계 입력 회귀: 0건/1건/1만건+ 시나리오에서 상한 및 절단 규칙이 항상 동일하게 적용되어야 한다.
@@ -499,6 +524,14 @@ triage 노드 처리 흐름: LLM 응답(str) → `triage_report_raw`에 저장 �
 }
 ```
 
+**유사 사건 컨텍스트 주입 (Phase 2 — RAG, §2.6)**
+
+triage 프롬프트 구성 전에 `IncidentRetriever.retrieve_for_triage(state)`를 호출한다.
+
+- 반환값이 비어 있지 않으면 triage 프롬프트에 `## Similar Past Incidents` 섹션을 추가한다 (§2.6.5 포맷 참조).
+- degraded mode(LLM_DAILY_CAP 도달)이면 embedding 호출을 생략하고 triage를 계속 진행한다.
+- embedding 실패 시 WARNING 로그만 발생, triage 차단 없이 계속 진행한다.
+
 #### propose + interrupt — 승인 흐름 (HITL)
 
 LangGraph `interrupt()`로 에이전트를 일시 정지하고 운영자 승인을 대기한다. CLI 인터페이스로 승인(Approve) / 거부(Reject) / 수정(Modify)을 선택한다.
@@ -508,8 +541,7 @@ LangGraph `interrupt()`로 에이전트를 일시 정지하고 운영자 승인�
 | 경과 시간 | 동작 |
 |----------|------|
 | 0분 | 조치 제안 + 이메일 알림 발송 |
-| 30분 미응답 | 이메일 재알림 1회 발송 |
-| 60분 미응답 (최종) | 에스컬레이션 리포트 저장 + 이메일 통보, 에이전트 종료 (자동 실행 안 함) |
+| 12시간 미응답 (최종) | 에스컬레이션 리포트 저장 + 이메일 통보, 에이전트 종료 (자동 실행 안 함) |
 
 타임아웃 판정 기준은 `approval_requested_ts`(propose write)와 현재 UTC 시각의 차이로 계산한다.  
 `interrupt`는 `reject` 시 `final_status = "reported"`, `timeout` 시 `final_status = "escalated"`를 기록한 뒤 종료한다.
@@ -575,6 +607,13 @@ LLM이 하는 일:
 5. 재발 방지 권고 (LLM 제안 — 사람이 검수)
 
 실패 시: 포스트모템 생성 실패는 장애 대응 자체에 영향 없음. `emit_alert(severity="WARNING", event_type="POSTMORTEM_FAILED")` 로깅 후 END. `final_status`는 변경하지 않는다.
+
+**인덱싱 (Phase 2 — RAG, §2.6)**
+
+`postmortem_report` 생성 직후 `IncidentIndexer.index_resolved_incident(state)`를 호출한다.
+
+- 호출 조건: `final_status == "resolved"` AND `postmortem_report is not None`
+- 실패해도 예외를 전파하지 않으며 `final_status`를 변경하지 않는다 (§2.6.6 참조).
 
 **가드레일 — 실행 가능 조치 화이트리스트**: LLM이 어떤 조치를 제안하든, 사전 정의된 화이트리스트에 없으면 execute 노드에서 실행을 거부한다.
 
@@ -941,8 +980,7 @@ def emit_alert(severity: str, event_type: str, summary: str, detail: dict):
 | 이벤트 | severity | event_type | Alert Rule 동작 |
 |--------|----------|------------|----------------|
 | 장애 감지 + 조치 제안 | WARNING | `TRIAGE_READY` | 운영팀 이메일 (승인 요청) |
-| 승인 대기 30분 초과 | WARNING | `APPROVAL_TIMEOUT` | 운영팀 이메일 (재알림) |
-| 승인 대기 60분 초과 (최종) | ESCALATION | `APPROVAL_TIMEOUT` | 운영팀 이메일 (에스컬레이션) |
+| 승인 대기 12시간 초과 (최종) | ESCALATION | `APPROVAL_TIMEOUT` | 운영팀 이메일 (에스컬레이션) |
 | 조치 실행 성공 | INFO | `EXECUTION_SUCCESS` | 운영팀 이메일 (완료) |
 | 조치 실행 실패 | ESCALATION | `EXECUTION_FAILED` | 운영팀 이메일 (에스컬레이션) |
 | verify blocking 검증 실패 + 롤백 | ESCALATION | `VALIDATION_FAILED` | 운영팀 이메일 (에스컬레이션) |
@@ -1006,6 +1044,278 @@ DEV-003 기준 rollback 대상 Delta 테이블은 아래 2개로 고정한다.
 ```
 
 Delta Lake의 타임 트래블 기능을 사용하므로 추가 인프라가 필요 없다.
+
+---
+
+### 2.6 RAG 기반 유사 사건 조회 (Phase 2)
+
+> **적용 시점**: Phase 1 로드맵(이 스펙 나머지 전체) 구현 완료 후 적용.
+> **전제**: `postmortem` 노드 운영 → `incident_embeddings` 누적 → 6개월 이상 시 실질적 품질 향상 기대.
+
+#### 2.6.1 목적
+
+| 문제 | 현재 상태 | 도입 후 |
+|------|----------|---------|
+| 반복 패턴 재추론 | 동일 pipeline + 동일 위반 유형이어도 매번 처음부터 추론 | 유사 사건 2~3건을 프롬프트에 제공, LLM이 선례를 참고하여 판단 |
+| `skip_and_report` 오판 | Bronze 원인임에도 backfill 시도 추천 위험 | 과거 동일 패턴에서 skip이 올바른 선택이었음을 컨텍스트로 제공 |
+| 포스트모템 활용 없음 | 생성 후 저장, 재활용 안 됨 | 인덱싱 파이프라인이 자동으로 지식 베이스에 추가 |
+
+#### 2.6.2 전체 흐름
+
+```
+[인덱싱 파이프라인]
+postmortem 노드
+  └─ final_status = "resolved" AND postmortem_report is not None인 경우
+       └─ IncidentIndexer.index_resolved_incident(state)
+            ├─ LLM 호출: triage_report + action + outcome → 영어 요약 생성 (~150 토큰)
+            │   (이 LLM 호출은 LLM_DAILY_CAP에서 분리된 별도 쿼터)
+            ├─ AzureEmbeddingClient.embed(english_summary) → vector(1536)
+            └─ IncidentStore.insert(record) → incident_embeddings 테이블
+
+[조회 파이프라인]
+triage 노드
+  └─ IncidentRetriever.retrieve_for_triage(state)
+       ├─ degraded mode이면 즉시 빈 문자열 반환 (embedding 호출 스킵)
+       ├─ 쿼리 텍스트 구성 (dq_analysis + exceptions + dq_tags)
+       ├─ AzureEmbeddingClient.embed(text) → query vector
+       ├─ IncidentStore.search_similar(pipeline, query_vector, k=3)
+       └─ _format_for_prompt(similar_incidents) → 프롬프트 주입 문자열
+```
+
+#### 2.6.3 DB 스키마
+
+기존 LangFuse PostgreSQL Flexible Server에 `pgvector` extension 추가. 별도 서비스 불필요.
+
+```sql
+-- pgvector extension (최초 1회)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 인덱싱 테이블
+CREATE TABLE incident_embeddings (
+    id              SERIAL PRIMARY KEY,
+    incident_id     TEXT NOT NULL UNIQUE,          -- AgentState.incident_id
+    pipeline        TEXT NOT NULL,                 -- AgentState.pipeline
+    triage_summary  TEXT NOT NULL,                 -- 검색 결과 표시용 영어 요약
+    embedding       vector(1536),                  -- text-embedding-3-small
+    action_taken    TEXT NOT NULL,                 -- backfill_silver | retry_pipeline | skip_and_report
+    final_status    TEXT NOT NULL,                 -- resolved
+    detected_at     TIMESTAMPTZ NOT NULL,          -- AgentState.detected_at
+    indexed_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 벡터 유사도 검색 인덱스
+CREATE INDEX ON incident_embeddings
+    USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 10);
+```
+
+**마이그레이션 파일**: `migrations/001_incident_embeddings.sql`
+
+**pgvector ivfflat 확장 계획**:
+
+| 누적 incident 수 | lists 값 | 재인덱싱 절차 |
+|-----------------|---------|-------------|
+| 0 ~ 1,000건 | `10` (초기값) | — |
+| 1,000 ~ 10,000건 | `50` | `DROP INDEX` → `CREATE INDEX CONCURRENTLY` |
+| 10,000건+ | `100` | 동일 |
+
+dev 환경에서는 `pgvector/pgvector:pg16` Docker 이미지로 대체 가능:
+```bash
+docker run -e POSTGRES_PASSWORD=dev -p 5432:5432 pgvector/pgvector:pg16
+```
+
+#### 2.6.4 컴포넌트 명세
+
+**AzureEmbeddingClient** (`src/agent/rag/embedding.py`)
+
+| 항목 | 값 |
+|------|---|
+| 모델 | `text-embedding-3-small` |
+| 차원 | 1536 |
+| API | 기존 Azure OpenAI endpoint 재사용 (`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`) |
+| 신규 환경변수 | `AZURE_EMBEDDING_DEPLOYMENT` (text-embedding-3-small 배포명) |
+| 일일 한도 영향 | 없음 — chat completions 한도(`LLM_DAILY_CAP`)와 별도 쿼터 |
+| 재시도 | 429/timeout → 최대 3회 exponential backoff |
+
+```python
+class AzureEmbeddingClient:
+    MODEL = "text-embedding-3-small"
+
+    def embed(self, text: str) -> list[float]:
+        """단일 텍스트 임베딩. 실패 시 EmbeddingError 발생."""
+```
+
+---
+
+**IncidentStore** (`src/agent/rag/incident_store.py`)
+
+```python
+class IncidentStore:
+    def insert(self, record: IncidentRecord) -> None:
+        """incident_id UNIQUE 제약으로 중복 삽입 방지 (멱등). ON CONFLICT DO NOTHING 사용."""
+
+    def search_similar(
+        self,
+        pipeline: str,
+        query_embedding: list[float],
+        k: int = 3,
+        min_cosine_similarity: float = 0.70,
+    ) -> list[SimilarIncident]:
+        """
+        동일 pipeline 내에서 cosine 유사도 기준 Top-k 조회.
+        min_cosine_similarity 미달 결과는 제외 (무관한 사례 주입 방지).
+        임계값 0.70 선정 근거: 도메인 특화 영어 요약의 어휘 변이를 허용하면서
+        이질적 사건을 차단 가능한 균형점 (≈46도).
+        """
+```
+
+pgvector SQL 패턴:
+```sql
+SELECT incident_id, pipeline, triage_summary, action_taken, final_status,
+       detected_at, 1 - (embedding <=> %s::vector) AS similarity
+FROM incident_embeddings
+WHERE pipeline = %s
+  AND 1 - (embedding <=> %s::vector) >= %s
+ORDER BY embedding <=> %s::vector
+LIMIT %s;
+```
+
+---
+
+**IncidentRetriever** (`src/agent/rag/retriever.py`)
+
+쿼리 텍스트 구성 (embed 입력):
+```
+{pipeline} | dq: {dq_analysis 앞 200자} | exceptions: {exception_type 목록} | dq_tags: {dq_tag 목록}
+```
+
+토큰 예산 초과 시 k 감소 전략:
+```python
+def _format_for_prompt(incidents: list[SimilarIncident], max_chars: int = 2400) -> str:
+    # 2,400자 ≈ 600 토큰 (영어 기준 4자/토큰)
+    for k in [3, 2, 1]:
+        text = _render_incidents(incidents[:k])
+        if len(text) <= max_chars:
+            return text
+    return ""  # k=1도 초과하면 컨텍스트 없이 진행
+```
+
+---
+
+**IncidentIndexer** (`src/agent/rag/indexer.py`)
+
+AgentState → IncidentRecord 필드 매핑:
+
+| IncidentRecord 필드 | AgentState 소스 | 비고 |
+|--------------------|-----------------|-----|
+| `incident_id` | `state["incident_id"]` | |
+| `pipeline` | `state["pipeline"]` | |
+| `triage_summary` | LLM 생성 영어 요약 | 아래 프롬프트 참조 |
+| `action_taken` | `state["action_plan"]["action"]` | 운영자가 승인한 최종 조치 |
+| `final_status` | `state["final_status"]` | `"resolved"` 고정 |
+| `detected_at` | `state["detected_at"]` | UTC ISO8601 → TIMESTAMPTZ |
+
+triage_report 사용 필드:
+
+| 사용 필드 | 접근 경로 | 없을 경우 fallback |
+|----------|----------|-------------------|
+| 장애 요약 | `triage_report["summary"]` | `triage_report.get("incident_summary", "")` |
+| 근본 원인 | `triage_report["root_causes"]` | `[]` |
+| 영향 범위 | `triage_report.get("impact", "")` | `""` |
+
+영어 요약 생성 LLM 프롬프트:
+```
+You are summarizing a pipeline incident for future reference.
+Write a concise English summary (max 120 words) covering:
+- Root cause and affected tables/fields
+- Key violation statistics (type, count, percentage)
+- Action taken and outcome
+- One-line key insight for similar future incidents
+
+Input:
+Pipeline: {pipeline}
+Summary: {triage_report[summary]}
+Root causes: {triage_report[root_causes]}
+Action: {action_plan[action]} (params: {action_plan[parameters]})
+Outcome: {final_status}
+```
+
+---
+
+**데이터 클래스** (`src/agent/rag/schema.py`)
+
+```python
+@dataclass(frozen=True)
+class IncidentRecord:
+    incident_id:    str
+    pipeline:       str
+    triage_summary: str
+    embedding:      list[float]
+    action_taken:   str
+    final_status:   str
+    detected_at:    datetime
+
+@dataclass(frozen=True)
+class SimilarIncident:
+    incident_id:    str
+    pipeline:       str
+    triage_summary: str
+    action_taken:   str
+    final_status:   str
+    detected_at:    datetime
+    similarity:     float        # 0.0~1.0
+```
+
+#### 2.6.5 triage 프롬프트 주입 포맷
+
+`IncidentRetriever`가 반환한 문자열이 비어 있지 않으면 triage 프롬프트에 아래 섹션을 추가한다:
+
+```
+## Similar Past Incidents (reference only; omit section if none)
+1. [2026-01-15] pipeline_silver | action: backfill_silver | outcome: resolved
+   Root cause: Bronze source transaction_ledger_raw stale (T-1 data missing).
+   Violations: amount≤0 (43%, ~1,200 records), source_stale on 2 tables.
+   Action: backfill_silver window=2026-01-14. Verified resolved in 12 min.
+   Key insight: When amount violations coexist with source_stale, fix source freshness first.
+
+2. [2026-01-08] pipeline_silver | action: skip_and_report | outcome: escalated
+   Root cause: Upstream ETL filter bug causing non-positive amounts.
+   Violations: amount≤0 (98%, ~8,000 records). No data freshness issue.
+   Action: skip_and_report — backfill deemed futile, upstream fix required.
+   Key insight: Near-100% amount violation rate indicates upstream origin, not Silver logic.
+```
+
+- 토큰 예산: triage 기존 예산 3,000 토큰 중 **최대 600 토큰** (k=3 × ~150 토큰 + 헤더)
+- 유사 사건 없으면 섹션 전체 생략 (토큰 낭비 없음)
+- k 감소 전략: `k=3 → k=2 → k=1 → ""` (§2.6.4 IncidentRetriever 참조)
+
+#### 2.6.6 Graceful Degradation
+
+| 상황 | 동작 |
+|------|------|
+| Cold start (incident 0건) | `search_similar`가 빈 리스트 반환 → `retrieve_for_triage`가 빈 문자열 반환, triage 계속 진행 |
+| 임베딩 실패 (3회 재시도 후 `EmbeddingError`) | retriever: WARNING 로그 + 빈 문자열 반환 / indexer: WARNING 로그 + 반환 (final_status 변경 없음) |
+| degraded mode (LLM_DAILY_CAP 도달) | `retrieve_for_triage`가 즉시 빈 문자열 반환 — embedding API 호출 생략 |
+| 유사도 임계값 미달 | `min_cosine_similarity = 0.70` 미달 결과 제외; 동일 pipeline 외 사건은 `WHERE pipeline = %s`로 사전 필터링 |
+
+**월별 모니터링 지표**:
+
+| 지표 | 목표 | 조정 |
+|------|------|------|
+| 검색 성공률 (retrieved / total triage) | 6개월 후 > 60% | < 30% → 0.65로 완화 / > 80% → 0.75로 강화 |
+| Top-1 recall (인간 평가) | > 0.80 | 낮으면 embedding 모델 재검토 |
+
+#### 2.6.7 인프라 요건
+
+| 항목 | 현재 | 변경 |
+|------|------|------|
+| 서버 | LangFuse PostgreSQL Flexible Server (B1ms) | 변경 없음 |
+| DB extension | 없음 | `pgvector` 활성화 (DDL 1줄) |
+| Azure OpenAI | gpt-5.2 deployment 존재 | `text-embedding-3-small` deployment 추가 |
+| Python 의존성 | — | `pgvector>=0.2.0`, `psycopg2-binary>=2.9` |
+| 환경변수 | — | `AZURE_EMBEDDING_DEPLOYMENT` 추가 |
+
+Azure Database for PostgreSQL Flexible Server는 `pgvector`를 공식 extension으로 지원. 별도 승인 절차 없이 `CREATE EXTENSION` 실행으로 활성화 가능.
 
 ---
 
@@ -1419,6 +1729,8 @@ Judge 프롬프트는 케이스별로 **채점 기준(rubric)**을 포함한다.
 | 상태 저장 | SQLite (LangGraph 체크포인터) | 승인 대기 중 상태 보존 |
 | 데이터 | Databricks Delta Lake | 기존 Gold/Silver 테이블 |
 | 도구 실행 | Databricks Jobs API | 파이프라인 재실행 (dry-run/live) |
+| 벡터 DB | pgvector (PostgreSQL extension) | 유사 사건 embedding 저장/조회 (Phase 2, §2.6) |
+| Embedding | Azure OpenAI text-embedding-3-small | 사건 요약 벡터화 (Phase 2, §2.6) |
 
 ### 4.2 프로젝트 구조
 
@@ -1426,26 +1738,54 @@ Judge 프롬프트는 케이스별로 **채점 기준(rubric)**을 포함한다.
 project/
 ├── graph/                          ← LangGraph 에이전트 그래프
 │   ├── state.py                    ← AgentState 정의
-│   ├── graph.py                    ← 그래프 빌드 (노드 + 엣지 + 조건)
+│   ├── graph.py                    ← 그래프 빌드 (노드 + 엣지 + 조건 라우터)
 │   └── nodes/
 │       ├── detect.py               ← 자동 감지 (폴링 + 이상 판정)
 │       ├── collect.py              ← 상황 수집
 │       ├── report_only.py          ← 실행 없이 리포트만 생성
-│       ├── analyze.py              ← bad_records 분석 (LLM)
-│       ├── triage.py               ← 트리아지 + 조치 제안 (LLM)
-│       ├── propose.py              ← 승인 요청 (interrupt)
+│       ├── analyze.py              ← bad_records 분석 (LLM) [구현 예정]
+│       ├── triage.py               ← 트리아지 + 조치 제안 (LLM) [구현 예정]
+│       ├── propose.py              ← 승인 요청 (interrupt) [구현 예정]
 │       ├── execute.py              ← 도구 실행 (Databricks Jobs API)
-│       ├── verify.py               ← 실행 결과 확인
-│       ├── rollback.py             ← 검증 실패 시 Delta 롤백
-│       └── postmortem.py           ← 자동 포스트모템 초안 생성 (LLM)
+│       ├── verify.py               ← 실행 결과 확인 [구현 예정]
+│       ├── rollback.py             ← 검증 실패 시 Delta 롤백 [구현 예정]
+│       └── postmortem.py           ← 자동 포스트모템 초안 생성 (LLM) [구현 예정]
+│
+├── src/
+│   ├── agent/
+│   │   └── rag/                    ← RAG 기반 유사 사건 조회 (Phase 2, §2.6)
+│   │       ├── __init__.py
+│   │       ├── schema.py           ← IncidentRecord, SimilarIncident 데이터 클래스
+│   │       ├── embedding.py        ← AzureEmbeddingClient
+│   │       ├── incident_store.py   ← IncidentStore (pgvector CRUD)
+│   │       ├── retriever.py        ← IncidentRetriever
+│   │       └── indexer.py          ← IncidentIndexer
+│   └── orchestrator/               ← 도메인/실행 스키마 (Pydantic 모델)
+│       ├── action_plan.py          ← ActionPlan 스키마 + 버전 검증 (ADR-0005/0013)
+│       ├── pipeline_monitoring_config.py  ← 파이프라인 모니터링 설정 모델
+│       ├── databricks_jobs_config.py      ← Databricks Jobs 설정 모델
+│       ├── validation_targets_config.py   ← Verify/rollback 대상 설정 모델 (ADR-0002)
+│       └── utils/                  ← 오케스트레이터 내부 유틸
+│
+├── runtime/
+│   └── watchdog.py                 ← 폴링 오케스트레이터 (5분 주기 실행 로직, pipelines_to_poll)
+│
+├── config/                         ← YAML 설정 파일
+│   ├── pipeline_monitoring.yaml    ← 파이프라인별 스케줄/컷오프/폴링 설정
+│   ├── databricks_jobs.yaml        ← 파이프라인 → Job ID 매핑
+│   └── validation_targets.yaml     ← Verify 체크리스트 + 롤백 대상 (ADR-0002)
 │
 ├── utils/
+│   ├── incident.py                 ← incident_id + fingerprint 생성 (ADR-0019)
+│   ├── secrets.py                  ← Azure Key Vault/env 시크릿 조회 (ADR-0015)
 │   └── time.py                     ← 시간대 유틸 (to_utc, to_kst, parse_pipeline_ts)
 │
 ├── tools/
+│   ├── llm_client.py               ← LLM 호출 (재시도 + 일일 캡 제어, LLMDailyCapExceeded)
 │   ├── databricks_jobs.py          ← Databricks Jobs API wrapper (dry-run/live)
 │   ├── data_collector.py           ← Gold/Silver 테이블 수집 함수
-│   ├── domain_validator.py         ← verify 도메인 검증 SQL 실행기
+│   ├── bad_records_summarizer.py   ← bad_records 집계 + 캡 적용 (ADR-0009)
+│   ├── domain_validator.py         ← verify 도메인 검증 SQL 실행기 [구현 예정]
 │   └── alerting.py                 ← 알림 로그 전송 (Log Analytics → Azure Monitor Alert)
 │
 ├── llmops/
@@ -1461,20 +1801,30 @@ project/
 │   │   └── v1.0_meta.yaml
 │   └── judge/                     ← LLM-as-a-Judge 채점 프롬프트
 │
+├── migrations/
+│   └── 001_incident_embeddings.sql ← pgvector extension + incident_embeddings DDL (Phase 2, §2.6.3)
+│
 ├── tests/
 │   ├── eval/                       ← 품질 평가 테스트
 │   │   ├── fixtures/
 │   │   ├── test_dq01_quality.py
 │   │   └── test_ops01_quality.py
-│   └── unit/
-│       ├── test_detector.py
-│       ├── test_tools.py
-│       └── test_graph_flow.py
+│   ├── unit/                       ← 단위 테스트 (노드/도구/설정별)
+│   │   └── rag/                    ← RAG 단위 테스트 (Phase 2)
+│   │       ├── test_embedding.py
+│   │       ├── test_incident_store.py
+│   │       ├── test_retriever.py
+│   │       └── test_indexer.py
+│   └── integration/
+│       └── rag/                    ← RAG 통합 테스트 (Docker pgvector 필요, Phase 2)
+│           └── test_store_integration.py
 │
-├── checkpoints/                    ← LangGraph 체크포인터 (SQLite)
+├── checkpoints/                    ← LangGraph 체크포인터 (SQLite, 로컬 개발용)
 │   └── agent.db
 │
-└── entrypoint.py                   ← 실행 진입점 (watchdog 또는 수동)
+├── requirements.txt                ← 런타임 의존성 (langgraph, pydantic, PyYAML 등)
+├── requirements-dev.txt            ← 개발/CI 의존성 (requirements.txt 포함 + pytest)
+└── entrypoint.py                   ← 실행 진입점 (runtime.watchdog.run_once() 호출)
 ```
 
 ---
@@ -1491,6 +1841,9 @@ project/
 | D: 실행 후 실패 | 재실행했으나 또 실패 | 실행 → 실패 감지 → 에스컬레이션 리포트 |
 | E: 정상 상태 | 모든 파이프라인 성공 | heartbeat 로그만 (LLM 호출 없음 = 비용 0) |
 | **F: 포스트모템 생성 실패** | LLM 타임아웃으로 포스트모템 실패 | POSTMORTEM_FAILED 경고 발송, final_status는 여전히 resolved |
+| **G: RAG cold start** | incident 0건, triage 실행 | 빈 문자열 반환, "Similar Past Incidents" 섹션 생략, triage 정상 완료 (Phase 2) |
+| **H: RAG 임베딩 실패** | `AzureEmbeddingClient` 3회 재시도 실패 | WARNING 로그, triage 차단 없이 계속 진행 (Phase 2) |
+| **I: RAG 인덱싱 실행** | 시나리오 A 완료 후 postmortem 생성 | `IncidentIndexer`가 호출되어 incident_embeddings에 레코드 삽입 (Phase 2) |
 
 ### 5.2 데모 시나리오
 
@@ -1511,7 +1864,7 @@ project/
 | 자동 감지 트리거 | 스케줄 연동 폴링 + 이상 판정 (일배치: 완료 시각 후, A: 5분 주기) |
 | 에이전트 그래프 | detect → collect → analyze → triage → propose → execute → verify → postmortem + 조건 엣지 분기 (report_only, analyze 스킵, rollback, timeout 등) |
 | 사건 식별 | incident_id + fingerprint 기반 중복 방지 + 수명주기 추적 |
-| HITL 승인 | LangGraph interrupt + CLI + 승인 타임아웃 (30분 → 재알림 → 60분 → 종료) |
+| HITL 승인 | LangGraph interrupt + CLI + 승인 타임아웃 (12시간, 무응답 시 에스컬레이션 종료) |
 | 도구 실행 | Databricks Jobs API wrapper (dry-run + live, Key Vault 기반) |
 | 가드레일 | 실행 가능 조치 화이트리스트 (backfill_silver, retry_pipeline, skip_and_report) |
 | verify 도메인 검증 | 잡 성공 외 레코드 건수/중복 키/bad_records 비율 재검증 |
@@ -1525,6 +1878,7 @@ project/
 | 시간대 표준 | 내부 처리 UTC ISO8601, 표시 KST |
 | LLMOps | LangFuse (관측, Self-Hosted) + Prompt Registry (버전 관리) + Eval Runner (품질 평가) |
 | **자동 포스트모템** | verify(resolved) 이후 LLM으로 포스트모템 초안 생성, 실패 시 경고만 (장애 대응에 영향 없음) |
+| **RAG 기반 유사 사건 조회** (Phase 2) | postmortem 생성 → IncidentIndexer로 인덱싱; triage 시 IncidentRetriever로 유사 사건 검색 → 프롬프트 주입 (§2.6) |
 
 ---
 
@@ -1532,14 +1886,14 @@ project/
 
 ### 7.1 기능 확장
 
-| 이번에 구축 | 향후 추가 |
-|------------|----------|
-| Level 3 자동화 (감지→분석→승인→실행) | Level 4 검토 (자동 실행, 금융 규제 범위 내) |
-| LangGraph 상태 머신 + HITL | 다단계 재시도, 대체 복구 경로 |
-| LangFuse 관측 | 파라미터 범위 검증 가드레일 강화 |
-| 프롬프트 버전 관리 + eval | Online eval + 사용자 피드백 루프 |
-| Silver backfill 단건 실행 | 다중 파이프라인 동시 복구, 더 많은 에이전트 (FIN, BI 등) |
-| Databricks Jobs API | Git PR 생성, 룰 변경 등 도구 확장 |
+| 이번에 구축 (Phase 1) | Phase 2 | 향후 추가 |
+|------------|---------|----------|
+| Level 3 자동화 (감지→분석→승인→실행) | **RAG 기반 유사 사건 조회** (§2.6) | Level 4 검토 (자동 실행, 금융 규제 범위 내) |
+| LangGraph 상태 머신 + HITL | pgvector 인덱싱 + triage 프롬프트 주입 | 다단계 재시도, 대체 복구 경로 |
+| LangFuse 관측 | IncidentIndexer / IncidentRetriever 운영 | 파라미터 범위 검증 가드레일 강화 |
+| 프롬프트 버전 관리 + eval | 검색 성공률 월별 모니터링 | Online eval + 사용자 피드백 루프 |
+| Silver backfill 단건 실행 | — | 다중 파이프라인 동시 복구, 더 많은 에이전트 (FIN, BI 등) |
+| Databricks Jobs API | — | Git PR 생성, 룰 변경 등 도구 확장 |
 
 ### 7.2 운영/보안 고도화 (비판 리뷰 반영 — 8일 스코프 밖)
 
