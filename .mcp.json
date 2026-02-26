@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sudocode-mcp": {
+      "type": "stdio",
+      "command": "sudocode-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

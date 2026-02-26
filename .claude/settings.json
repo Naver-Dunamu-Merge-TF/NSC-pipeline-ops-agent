@@ -1,5 +1,10 @@
 {
   "additionalDirectories": [
     "./.claude/skills"
-  ]
+  ],
+  "mcpServers": {
+    "sudocode-mcp": {
+      "command": "sudocode-mcp"
+    }
+  }
 }
