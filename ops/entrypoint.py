@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 try:
-    ROOT = Path(__file__).resolve().parent
+    ROOT = Path(__file__).resolve().parent.parent  # ops/ -> project root
 except NameError:
     ROOT = Path.cwd()
 SRC = ROOT / "src"
